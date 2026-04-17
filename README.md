@@ -31,7 +31,7 @@
 
 Most Azure security scanners produce a flat list of 200 findings and leave you wondering which ones actually matter. ARGUS reads your full Azure Resource Graph, Entra identity surface, RBAC graph, PIM schedules, and network topology — then **correlates individual misconfigurations into named attack chains a real adversary would exploit**. Instead of "Storage has public blob access + User has no MFA + Key Vault has network rule Allow", you see **CHAIN-019: guest user → stolen session → Key Vault key read → database exfiltration, and the single rule to change that breaks the chain.**
 
-211 policies. 51 hand-authored attack chains. A graph pathfinder that discovers chains nobody wrote down. IaC pre-deployment scanning across Terraform, ARM, Bicep, and ARM what-if. Four compliance packs (SOC 2, HIPAA, PCI DSS 4.0, ISO 27001:2022) with 100% rule-to-control coverage. Zero telemetry, no SaaS, no data ever leaves your laptop.
+245 policies. 51 hand-authored attack chains. A graph pathfinder that discovers chains nobody wrote down. IaC pre-deployment scanning across Terraform, ARM, Bicep, and ARM what-if. Four compliance packs (SOC 2, HIPAA, PCI DSS 4.0, ISO 27001:2022) with 100% rule-to-control coverage. Zero telemetry, no SaaS, no data ever leaves your laptop.
 
 ---
 
@@ -39,7 +39,7 @@ Most Azure security scanners produce a flat list of 200 findings and leave you w
 
 | | |
 |---|---|
-| **211 policies** | 91 CIS Azure 2.0 + 120 Zero Trust native rules |
+| **245 policies** | 91 CIS Azure 2.0 + 154 Zero Trust native rules (identity, data, network, visibility, workload, AI/ML, integration, backup) |
 | **51 attack chains** | Hand-authored patterns with personalised narratives |
 | **Graph pathfinder** | Nested groups + Entra directory roles + PIM Eligible/Active + cross-subscription + NSG-derived exposure edges |
 | **245 Terraform types** | azurerm_* resource coverage — more than Checkov |
@@ -188,7 +188,7 @@ If any of these fail, the binary you have isn't the one we published. No ambigui
 
 ### Rules engine
 
-- **211 policies** (91 CIS Azure 2.0 + 120 ARGUS Zero Trust)
+- **245 policies** (91 CIS Azure 2.0 + 154 ARGUS Zero Trust)
 - **OPA / Rego**: every rule is auditable, versioned, testable
 - **Coverage across Azure**: Identity/IAM, Storage, Databases (SQL, PostgreSQL, MySQL, Cosmos, Synapse, Redis), Networking (VNet, NSG, Firewall, App Gateway, Bastion, Private DNS, VPN Gateway), Compute (VM, VMSS, AKS, Container Apps), Data/Analytics (Data Factory, Databricks, Synapse), AI/ML (Cognitive Services, Azure OpenAI, ML Workspace), Integration (API Management, Logic Apps, Event Grid, Service Bus, Event Hub), Backup/DR (Recovery Services Vault), DevOps (App Configuration), Observability (Log Analytics, Activity Log)
 - **MITRE ATT&CK for Cloud** technique tagging on every finding
@@ -382,6 +382,215 @@ release/v1.2.0                                ●     frozen at v1.2.0
 ```
 
 Users who pinned `v1.0.0` can always browse the exact source of that release via `git checkout release/v1.0.0`.
+
+---
+
+## 🎛️ Azure services ARGUS scans
+
+Explicit, per-service coverage. Every bullet below is at least one Rego rule that fires on a misconfiguration of that service type. Services not listed are visible to ARGUS via Resource Graph but don't have dedicated rules yet — a future release closes the gap.
+
+**Identity & access (IAM)**
+- Microsoft Entra ID (users, groups, service principals, managed identities)
+- Role-based access control (RBAC) — built-in and custom roles
+- Privileged Identity Management (PIM) — eligible + active schedules
+- Conditional Access policies
+- App Registrations + service principal credentials
+- Guest users + cross-tenant access policies
+- Access reviews
+
+**Data**
+- Storage Accounts — blob public access, TLS floor, network rules, shared-key auth, Data Lake Gen2 HNS/ACLs
+- Azure SQL Server + databases + managed instances
+- Cosmos DB accounts
+- Azure Database for PostgreSQL (single + flexible)
+- Azure Database for MySQL (single + flexible)
+- Azure Database for MariaDB
+- Azure Cache for Redis — TLS 1.2, SSL-only port
+- Synapse workspaces + SQL pools (dedicated + serverless) — TDE, public endpoint
+- Data Factory — public access, integration runtime
+- Databricks workspaces — secure cluster connectivity, no-public-IP
+- Stream Analytics jobs — CMK encryption
+- HDInsight clusters — public gateway
+- Microsoft Purview accounts
+- NetApp Files — NFS v3/v4.1 + Kerberos posture
+
+**Networking**
+- Virtual Networks + Subnets
+- Network Security Groups (NSG) — inbound Allow rules, source IP restrictions
+- Azure Firewall + Firewall Policy (threat intel, DNS proxy)
+- Application Gateway — WAF mode, TLS policy
+- Front Door — TLS 1.2 floor, WAF
+- Azure Bastion
+- Azure DDoS Protection Plans
+- Private Endpoints + Private DNS zones (VNet link verification)
+- VPN Gateway — Basic SKU deprecation, active-active, BGP
+- ExpressRoute Circuits + ExpressRoute Direct ports (MACsec)
+- Traffic Manager — HTTPS probes
+- NAT Gateway — idle timeout
+- Network Watcher
+
+**Compute & workloads**
+- Virtual Machines — disk encryption, managed identity, JIT VM access
+- Virtual Machine Scale Sets — automatic OS upgrades, managed identity
+- Azure Kubernetes Service (AKS) — private cluster, Azure AD RBAC, network policy
+- Container Apps + Container App Environments — ingress, mTLS, managed identity
+- Container Instances
+- Container Registry — admin user, anonymous pull, zone redundancy
+- App Service + Linux/Windows Web Apps — HTTPS only, min TLS, client cert
+- Function App — HTTPS only, auth
+- Azure Batch accounts — public network access
+- Service Fabric clusters — Entra ID admin auth
+- Managed Disks + Disk Encryption Sets
+
+**AI / ML**
+- Cognitive Services (incl. Azure OpenAI) — public access, local auth, CMK
+- Azure Machine Learning Workspaces + compute clusters — CMK, public SSH
+- Bot Service — managed identity auth
+
+**Integration & messaging**
+- API Management — TLS policy, managed identity, internal VNet mode, diagnostic logs
+- Logic Apps — HTTP trigger IP restrictions
+- Event Grid topics + domains — local auth (SAS)
+- Event Hub namespaces — TLS, local auth
+- Service Bus namespaces — TLS, local auth
+- Azure Relay
+
+**Observability**
+- Log Analytics workspaces — retention, ingestion, local auth
+- Activity Log Profiles + Diagnostic Settings (per resource type)
+- Activity Log alerts — role assignment writes, Key Vault `listKeys`/`listSecrets`
+- Microsoft Defender for Cloud — per-service pricing, secure score
+- Network Watcher flow logs
+
+**Security & governance**
+- Microsoft Defender plans (Servers, SQL, Storage, Containers, App Service, Key Vault, ARM, DNS, open-source relational DBs, Cosmos, AI, APIM)
+- Azure Policy assignments + definitions + exemptions
+- Microsoft Sentinel (onboarding, alert rules, data connectors)
+- Advanced Threat Protection
+- Security Center contacts, auto-provisioning, subscription pricing
+
+**Key management**
+- Azure Key Vault — purge protection, soft delete, RBAC authorization, firewall, CMK usage
+- Managed HSM
+- Key Vault access policies + secrets + keys + certificates
+
+**Backup & disaster recovery**
+- Recovery Services Vaults — immutability, soft delete, CRR
+- Backup policies — retention floor, geo-redundant storage
+- Site Recovery replication policies — RPO threshold
+
+**DevOps / platform**
+- App Configuration stores — public access, local auth, CMK
+- User-assigned managed identities
+
+---
+
+## 📤 What the output looks like
+
+**Terminal summary** (always shown):
+
+```
+ARGUS scan │ elapsed 34s
+────────────────────────────────────────────────────────────
+ ✓ Azure resources (Resource Graph)       done    12s   — 87 resources enumerated
+ ✓ Entra ID (users, groups, SPs, CAPs)    done    8s    — 42 users, 12 groups, 23 SPs
+ ✓ Azure RBAC (ARM authorization)         done    4s    — 67 role assignments
+ ✓ Microsoft Defender for Cloud           done    6s    — 14 findings, score 62/100
+ ✓ Activity Log (30-day window)           done    11s   — 1,432 events
+ ✓ Azure Policy compliance                done    3s    — 91 policies evaluated
+
+╔═══════════════════════════════════════════════════════╗
+║                 ARGUS summary                         ║
+║                                                       ║
+║  Findings:      42 (CRITICAL 3, HIGH 14, MED 20)      ║
+║  Attack chains: 11 (CRITICAL 2, HIGH 6, MED 3)        ║
+║  ZT Score:      62/100 (Grade D)                      ║
+║                                                       ║
+║  Top-3 minimal fixes that break most chains:          ║
+║    1. Enable MFA on 8 no-MFA users (breaks 7 chains)  ║
+║    2. Disable Storage public access    (breaks 4)     ║
+║    3. Remove 2 guest users with UAA    (breaks 3)     ║
+╚═══════════════════════════════════════════════════════╝
+```
+
+**HTML report**: audit-ready, per-resource findings, chain narratives with personalised actor + target names, minimal-fix recommendations, per-framework compliance coverage tables.
+
+**JSON report**: every finding and chain with full metadata — rule ID, severity, pillar, MITRE ATT&CK technique, chain role, compliance control citations across SOC 2, HIPAA, PCI, ISO.
+
+**SARIF** (GitHub Security tab): standard SARIF 2.1.0 so findings land in Pull Request annotations.
+
+**Evidence bundle ZIP** (auditor delivery): per-framework subdirectories with findings mapped to controls plus a coverage summary.
+
+---
+
+## ❓ FAQ
+
+**Q: How long does a scan take?**
+A: 30s–2min for a typical single-subscription tenant (~100 resources, ~50 users). `--org-wide` scans every subscription in parallel; wall time is dominated by the largest subscription. On a 5,000-resource estate it takes ~4 min.
+
+**Q: What's the resource footprint?**
+A: ~80 MB RAM during scan, mostly OPA's compiled query cache. No disk writes except the output directory. No daemon, no background processes.
+
+**Q: Does ARGUS send any telemetry?**
+A: No. Not to us, not to Microsoft, not to anyone. The binary only talks to Azure endpoints and — for `argus update` — GitHub Releases API. Verifiable via packet capture.
+
+**Q: Will `argus scan` modify anything in my Azure environment?**
+A: No. Every API call is read-only. Activity Log will show `GET`s only; no `PUT`/`POST`/`DELETE`.
+
+**Q: What Azure privileges does the scanning identity need?**
+A: `Reader` on every subscription you want to scan, plus the Microsoft Graph permissions listed in [Authentication](#-authentication). No write permissions.
+
+**Q: Is ARGUS safe to run against production?**
+A: Yes. Read-only. Sub-linear Azure API consumption. You can run it every hour without pressure.
+
+**Q: Why does Windows say "Unknown publisher"?**
+A: Because the binary isn't Authenticode-signed yet (we have PE metadata embedded, which is a different thing). Details in Trust & verification above. Click *Run anyway* once; SmartScreen remembers. Docker image has no such issue.
+
+**Q: How do I contribute a new rule?**
+A: Open a GitHub Issue. Direct PRs aren't accepted (PolyForm Strict license), but feature requests + detailed issue descriptions are welcome and often implemented.
+
+**Q: Can I pin an older version?**
+A: Yes — `argus update --version v1.0.0` downgrades or pins. Each release has a permanent `release/vX.Y.Z` branch and the binaries stay on the GitHub release page.
+
+---
+
+## 🛠️ Troubleshooting
+
+**"Azure unreachable" or "context deadline exceeded"**:
+The preflight check catches this and names the likely cause. Usually:
+- Corporate proxy not set — `export HTTPS_PROXY=http://proxy:port`
+- TLS-inspecting gateway missing root CA — ask IT for corporate root CA
+- Firewall blocking outbound 443 — open `management.azure.com`, `graph.microsoft.com`, `login.microsoftonline.com`
+- `argus check-permissions --tenant <id>` probes each endpoint individually
+
+**"Windows protected your PC" SmartScreen**:
+Expected for unsigned binaries. *More info* → *Run anyway* — once per binary.
+
+**Docker: "Cannot connect to the Docker daemon"**:
+Docker Desktop isn't running. Start it, or use the native binary via `argus install`.
+
+**"No Azure credential available"**:
+`az login` on the host, or set `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET` for a Service Principal.
+
+**Graph permissions limited warning in the report**:
+Some rules couldn't run because the scanning identity lacks a Graph scope. `argus check-permissions --tenant <id>` shows exactly which. Grant via `scripts/setup-graph-permissions.sh`.
+
+**macOS: "cannot be opened because the developer cannot be verified"**:
+Right-click → Open → Open. Or `xattr -d com.apple.quarantine argus-darwin-arm64`.
+
+---
+
+## 🔒 Privacy & data handling
+
+ARGUS is designed around one principle: **your tenant data never leaves your machine.**
+
+| What leaves your machine? | To where? | Why? |
+|---|---|---|
+| Azure API calls (ARM, Graph, Defender) | `*.azure.com`, `graph.microsoft.com`, `login.microsoftonline.com` | To read your tenant's state |
+| `argus update` checks | `api.github.com` + `github.com/releases` | To check for and download newer binaries |
+| Everything else | Nowhere | No telemetry, no analytics, no phone-home |
+
+No tenant identifiers, resource names, findings, or configurations are ever transmitted to any third party. The maintainer does not operate any backend service that receives ARGUS data. The binary's network profile is auditable via packet capture.
 
 ---
 
