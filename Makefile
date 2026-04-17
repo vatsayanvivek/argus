@@ -1,6 +1,6 @@
 .PHONY: build build-all test vet lint clean install run embed-prep windows-installer windows-versioninfo docker docker-push
 
-VERSION ?= 1.0.0
+VERSION ?= 1.1.0
 LDFLAGS := -ldflags="-s -w -X main.Version=$(VERSION)"
 
 # Go's //go:embed directive cannot reference parent directories ("..").
