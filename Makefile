@@ -75,3 +75,11 @@ windows-installer: build-all
 	@mkdir -p scripts/dist
 	@cd scripts && makensis -V1 argus-installer.nsi
 	@echo "Built scripts/dist/argus-setup.exe"
+
+# End-to-end validation harness. Exercises every feature in the
+# binary (and, if available, the Docker image) and reports pass/fail
+# per check. Use in CI as a gate and locally to sanity-check before
+# cutting a release.
+validate: build
+	@bash scripts/validate.sh
+.PHONY: validate

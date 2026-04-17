@@ -6,17 +6,16 @@ name: Release
 # provenance, and publishes everything to the matching GitHub
 # release + ghcr.io.
 #
-# Security posture:
-#   - Version info is embedded in the Windows exe so SmartScreen
-#     names the publisher instead of saying "Unknown publisher"
-#   - SBOMs (SPDX JSON) accompany every binary for supply-chain
-#     transparency
-#   - GitHub-native SLSA build-provenance attests the binary was
-#     built from this commit on GitHub's runners (cryptographically
-#     signed, free). Modern endpoint security increasingly respects
-#     this as a trust signal.
-#   - Docker image is multi-arch (linux/amd64 + linux/arm64) and
-#     also carries a provenance attestation stamped to its digest.
+# Design notes:
+#   - Parallelism: four independent jobs fan out from `resolve` —
+#     binary cross-compile, NSIS installer build, and two native-
+#     runner Docker builds (amd64 + arm64). A final `publish` job
+#     gathers all artifacts and pushes the release.
+#   - No QEMU: we use GitHub's native ARM runner (ubuntu-24.04-arm)
+#     for the arm64 Docker build. QEMU emulation would add ~5 min
+#     per release; native runners drop it to ~2 min.
+#   - Aggressive caching: Go module cache + Docker buildx layer
+#     cache cut cold-start time further.
 
 on:
   push:
@@ -25,15 +24,10 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Release version to build (without leading v). Example: 1.9.0'
+        description: 'Release version to build (without leading v). Example: 1.0.0'
         required: true
         type: string
 
-# Minimum permissions needed across all jobs.
-#   contents:write        — upload release assets
-#   packages:write        — push Docker image to ghcr.io
-#   id-token:write        — sign SLSA attestations via Sigstore
-#   attestations:write    — write attestations to the GitHub API
 permissions:
   contents: write
   packages: write
@@ -42,200 +36,320 @@ permissions:
   security-events: write
 
 jobs:
-  build:
-    name: Build release artifacts
+  # -------------------------------------------------------------------
+  # resolve — one-step job that derives version + tag strings from
+  # whichever trigger fired. Downstream jobs read these via outputs so
+  # the parsing logic lives in one place.
+  # -------------------------------------------------------------------
+  resolve:
+    name: Resolve version
     runs-on: ubuntu-24.04
     outputs:
-      version: ${{ steps.resolve.outputs.version }}
-      tag:     ${{ steps.resolve.outputs.tag }}
-      digest:  ${{ steps.docker.outputs.digest }}
+      version: ${{ steps.v.outputs.version }}
+      tag:     ${{ steps.v.outputs.tag }}
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Resolve release version
-        id: resolve
+      - id: v
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "version=${{ inputs.version }}" >> $GITHUB_OUTPUT
-            echo "tag=v${{ inputs.version }}" >> $GITHUB_OUTPUT
+            echo "version=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+            echo "tag=v${{ inputs.version }}"    >> "$GITHUB_OUTPUT"
           else
             TAG="${GITHUB_REF#refs/tags/}"
-            echo "version=${TAG#v}" >> $GITHUB_OUTPUT
-            echo "tag=${TAG}" >> $GITHUB_OUTPUT
+            echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+            echo "tag=${TAG}"       >> "$GITHUB_OUTPUT"
           fi
+
+  # -------------------------------------------------------------------
+  # binaries — cross-compile 5 platform binaries, generate SBOMs and
+  # a build-provenance attestation. Uploads the whole dist/ tree as
+  # an artifact that `publish` will later download alongside the
+  # installer.
+  # -------------------------------------------------------------------
+  binaries:
+    name: Binaries + SBOMs
+    needs: resolve
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
 
       - uses: actions/setup-go@v5
         with:
           go-version: '1.25'
           check-latest: true
+          cache: true # caches ~/.cache/go-build and ~/go/pkg/mod
 
-      # Tools:
-      #   goversioninfo — embeds PE resource (Company, Product, Version,
-      #     Copyright) into argus.exe so Windows Properties → Details
-      #     shows our metadata instead of "Unknown publisher"
-      #   nsis          — cross-builds the Windows GUI installer from
-      #     scripts/argus-installer.nsi
-      #   syft          — SBOM generation per binary
-      - name: Install build tools
+      - name: Install goversioninfo + syft
         run: |
           go install github.com/josephspurrier/goversioninfo/cmd/goversioninfo@latest
-          sudo apt-get update
-          sudo apt-get install -y nsis
           curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | \
             sudo sh -s -- -b /usr/local/bin
 
       - name: Prepare embeds + Windows version info
-        env:
-          VERSION: ${{ steps.resolve.outputs.version }}
         run: |
           make embed-prep
-          # goversioninfo reads scripts/versioninfo.json; it's checked
-          # in with the intended shape per release. Regenerate the
-          # syso from the current JSON.
-          $(go env GOPATH)/bin/goversioninfo \
-            -64 \
+          $(go env GOPATH)/bin/goversioninfo -64 \
             -o cmd/resource_windows_amd64.syso \
             scripts/versioninfo.json
 
-      - name: Cross-compile binaries
+      - name: Cross-compile 5 platforms
         env:
-          VERSION: ${{ steps.resolve.outputs.version }}
+          VERSION: ${{ needs.resolve.outputs.version }}
         run: |
           mkdir -p dist
           LDFLAGS="-s -w -X main.Version=${VERSION}"
-          CGO_ENABLED=0 GOOS=linux   GOARCH=amd64 go build -ldflags="${LDFLAGS}" -o dist/argus-linux-amd64   ./main.go
-          CGO_ENABLED=0 GOOS=linux   GOARCH=arm64 go build -ldflags="${LDFLAGS}" -o dist/argus-linux-arm64   ./main.go
-          CGO_ENABLED=0 GOOS=darwin  GOARCH=amd64 go build -ldflags="${LDFLAGS}" -o dist/argus-darwin-amd64  ./main.go
-          CGO_ENABLED=0 GOOS=darwin  GOARCH=arm64 go build -ldflags="${LDFLAGS}" -o dist/argus-darwin-arm64  ./main.go
-          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags="${LDFLAGS}" -o dist/argus-windows-amd64.exe ./main.go
+          for target in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64; do
+            os="${target%/*}"; arch="${target#*/}"
+            out="dist/argus-${os}-${arch}"
+            [ "$os" = "windows" ] && out="${out}.exe"
+            CGO_ENABLED=0 GOOS="$os" GOARCH="$arch" go build -ldflags="${LDFLAGS}" -o "$out" ./main.go
+          done
 
-      - name: Build Windows GUI installer
+      - name: Generate SBOMs
         run: |
-          mkdir -p scripts/dist
-          cd scripts && makensis -V1 argus-installer.nsi
-          cp dist/argus-setup.exe ../dist/ 2>/dev/null || cp scripts/dist/argus-setup.exe dist/
+          for bin in dist/argus-*; do
+            [[ "$bin" == *.sbom.* ]] && continue
+            syft --output "spdx-json=${bin}.sbom.spdx.json" "$bin"
+          done
 
       - name: Compute SHA256SUMS
         working-directory: dist
         run: sha256sum argus-* > SHA256SUMS
 
-      # Per-binary SBOMs. Each downstream consumer (Dependency Track,
-      # Grype, Snyk OSS, Trivy) can ingest SPDX JSON directly.
-      - name: Generate SBOMs
-        run: |
-          for bin in dist/argus-linux-amd64 dist/argus-linux-arm64 \
-                     dist/argus-darwin-amd64 dist/argus-darwin-arm64 \
-                     dist/argus-windows-amd64.exe; do
-            syft --output "spdx-json=${bin}.sbom.spdx.json" "${bin}"
-          done
-
-      # GitHub-native SLSA build-provenance. No keys to manage, no
-      # cost. Produces a signed attestation in the public Sigstore
-      # transparency log binding every artifact to this exact
-      # commit + workflow + runner.
       - name: Attest binary provenance
         uses: actions/attest-build-provenance@v1
         with:
-          subject-path: |
-            dist/argus-linux-amd64
-            dist/argus-linux-arm64
-            dist/argus-darwin-amd64
-            dist/argus-darwin-arm64
-            dist/argus-windows-amd64.exe
-            dist/argus-setup.exe
+          subject-path: dist/argus-*
 
-      # -------------------------------------------------------------
-      # Docker image: multi-arch (amd64 + arm64), distroless base.
-      # Users who don't want to deal with Windows SmartScreen /
-      # Defender / EDR can docker-pull instead. See Dockerfile header
-      # for the full rationale.
-      # -------------------------------------------------------------
-      - uses: docker/setup-qemu-action@v3
+      - uses: actions/upload-artifact@v4
+        with:
+          name: binaries
+          path: dist/
+          retention-days: 1
+
+  # -------------------------------------------------------------------
+  # installer — downloads the windows amd64 binary from the
+  # `binaries` job, runs NSIS against it to produce argus-setup.exe.
+  # Separate job so a broken NSIS script doesn't re-run the whole
+  # Go cross-compile.
+  # -------------------------------------------------------------------
+  installer:
+    name: Windows GUI installer
+    needs: binaries
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: binaries
+          path: dist/
+
+      - name: Install NSIS
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y nsis
+
+      - name: Build argus-setup.exe
+        run: |
+          mkdir -p scripts/dist
+          cd scripts && makensis -V1 argus-installer.nsi
+          cp dist/argus-setup.exe ../dist/ 2>/dev/null || cp scripts/dist/argus-setup.exe dist/
+          ls -la dist/argus-setup.exe
+
+      # Attest the installer too — same provenance trail.
+      - name: Attest installer provenance
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-path: dist/argus-setup.exe
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installer
+          path: dist/argus-setup.exe
+          retention-days: 1
+
+  # -------------------------------------------------------------------
+  # docker-amd64 / docker-arm64 — native-runner per-arch builds.
+  #
+  # Critical: we push by DIGEST, not by tag. Using per-arch tags
+  # (like `argus:1.0.0-amd64`) would pollute the ghcr.io UI with
+  # intermediate tags nobody's supposed to consume. Pushing by
+  # digest leaves the registry clean — only the final multi-arch
+  # manifest-list tag (`argus:1.0.0` / `argus:latest`) is visible
+  # to users.
+  # -------------------------------------------------------------------
+  docker-amd64:
+    name: Docker image (amd64)
+    needs: resolve
+    runs-on: ubuntu-24.04
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v4
+
       - uses: docker/setup-buildx-action@v3
+
       - uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build + push Docker image
-        id: docker
+      - id: build
         uses: docker/build-push-action@v5
         with:
           context: .
-          push: true
-          platforms: linux/amd64,linux/arm64
-          build-args: |
-            VERSION=${{ steps.resolve.outputs.version }}
-          tags: |
-            ghcr.io/${{ github.repository_owner }}/argus:${{ steps.resolve.outputs.version }}
-            ghcr.io/${{ github.repository_owner }}/argus:latest
-          labels: |
-            org.opencontainers.image.source=https://github.com/${{ github.repository }}
-            org.opencontainers.image.revision=${{ github.sha }}
-            org.opencontainers.image.version=${{ steps.resolve.outputs.version }}
+          platforms: linux/amd64
+          build-args: VERSION=${{ needs.resolve.outputs.version }}
+          # Push by digest only — outputs a digest the manifest job
+          # will later reference. No intermediate tag in ghcr.io.
+          outputs: |
+            type=image,name=ghcr.io/${{ github.repository_owner }}/argus,push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=docker-amd64
+          cache-to:   type=gha,scope=docker-amd64,mode=max
+
+  docker-arm64:
+    name: Docker image (arm64)
+    needs: resolve
+    runs-on: ubuntu-24.04-arm
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/arm64
+          build-args: VERSION=${{ needs.resolve.outputs.version }}
+          outputs: |
+            type=image,name=ghcr.io/${{ github.repository_owner }}/argus,push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=docker-arm64
+          cache-to:   type=gha,scope=docker-arm64,mode=max
+
+  # -------------------------------------------------------------------
+  # docker-manifest — assembles a multi-arch manifest from the two
+  # per-arch images. Clients pulling `argus:<version>` get the right
+  # arch automatically.
+  # -------------------------------------------------------------------
+  docker-manifest:
+    name: Docker multi-arch manifest
+    needs: [resolve, docker-amd64, docker-arm64]
+    runs-on: ubuntu-24.04
+    outputs:
+      digest: ${{ steps.push.outputs.digest }}
+    steps:
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: push
+        env:
+          IMAGE: ghcr.io/${{ github.repository_owner }}/argus
+          VERSION: ${{ needs.resolve.outputs.version }}
+          AMD64_DIGEST: ${{ needs.docker-amd64.outputs.digest }}
+          ARM64_DIGEST: ${{ needs.docker-arm64.outputs.digest }}
+        run: |
+          # Assemble the multi-arch manifest from the two per-arch
+          # digests pushed by docker-amd64 + docker-arm64. The result
+          # is a single clean tag pair (v<version> + latest) in the
+          # ghcr.io UI — no -amd64/-arm64 sidecars.
+          docker buildx imagetools create \
+            --tag "${IMAGE}:${VERSION}" \
+            --tag "${IMAGE}:latest" \
+            "${IMAGE}@${AMD64_DIGEST}" \
+            "${IMAGE}@${ARM64_DIGEST}"
+
+          # Capture the assembled manifest-list digest for the
+          # downstream attestation + cosign signing steps.
+          DIGEST=$(docker buildx imagetools inspect "${IMAGE}:${VERSION}" --format '{{ json . }}' | jq -r '.manifest.digest')
+          echo "digest=${DIGEST}" >> "$GITHUB_OUTPUT"
 
       - name: Attest Docker image provenance
         uses: actions/attest-build-provenance@v1
         with:
           subject-name: ghcr.io/${{ github.repository_owner }}/argus
-          subject-digest: ${{ steps.docker.outputs.digest }}
+          subject-digest: ${{ steps.push.outputs.digest }}
           push-to-registry: true
 
-      # CVE scan the released image with Trivy. Fails the release on
-      # any HIGH or CRITICAL vulnerability — if we're shipping a
-      # security tool, we don't get to ship it with known
-      # vulnerabilities in our own distribution. The hardened
-      # Chainguard base makes this bar achievable in practice; it
-      # rebuilds on every CVE so the attack surface resets regularly.
-      - name: Scan image for vulnerabilities
-        uses: aquasecurity/trivy-action@master
+      - uses: sigstore/cosign-installer@v3
+
+      - name: Sign Docker image with cosign
+        env:
+          COSIGN_EXPERIMENTAL: '1'
+          IMAGE: ghcr.io/${{ github.repository_owner }}/argus
+        run: |
+          cosign sign --yes "${IMAGE}@${{ steps.push.outputs.digest }}"
+
+  # -------------------------------------------------------------------
+  # trivy — CVE scan the released image. Fails the release on any
+  # HIGH/CRITICAL vulnerability. Uploads SARIF to Security tab (best
+  # effort — failure to upload doesn't block the release).
+  # -------------------------------------------------------------------
+  trivy:
+    name: Trivy CVE scan
+    needs: [resolve, docker-manifest]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ghcr.io/${{ github.repository_owner }}/argus@${{ steps.docker.outputs.digest }}
+          image-ref: ghcr.io/${{ github.repository_owner }}/argus:${{ needs.resolve.outputs.version }}
           format: sarif
           output: trivy-report.sarif
           severity: HIGH,CRITICAL
           exit-code: 1
           ignore-unfixed: true
 
-      # Upload the scan result to the GitHub Security tab so users
-      # can see a live CVE status badge on every release tag. This
-      # step is best-effort: a failure here (e.g. if the repo has no
-      # Advanced Security enabled) should not block release
-      # publication. The Trivy scan itself already gated on HIGH +
-      # CRITICAL CVEs — we just couldn't publish the report.
-      - name: Upload Trivy scan to Security tab
+      - name: Upload SARIF to Security tab
         if: hashFiles('trivy-report.sarif') != ''
         continue-on-error: true
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: trivy-report.sarif
 
-      # Sign the Docker image with cosign using GitHub's OIDC identity.
-      # No keys to store; the signature lands in the public
-      # Sigstore transparency log and consumers can verify with
-      #   cosign verify ghcr.io/vatsayanvivek/argus:<tag> \
-      #     --certificate-identity-regexp='^https://github\.com/vatsayanvivek/argus/.github/workflows/release\.yml@refs/tags/' \
-      #     --certificate-oidc-issuer=https://token.actions.githubusercontent.com
-      - uses: sigstore/cosign-installer@v3
-      - name: Sign Docker image
-        env:
-          COSIGN_EXPERIMENTAL: '1'
-        run: |
-          cosign sign --yes \
-            ghcr.io/${{ github.repository_owner }}/argus@${{ steps.docker.outputs.digest }}
+  # -------------------------------------------------------------------
+  # publish — final job. Downloads binaries + installer artifacts and
+  # uploads them to the GitHub release page. Runs last so all
+  # upstream verifications (SBOM, attestation, Trivy, cosign) have
+  # cleared.
+  # -------------------------------------------------------------------
+  publish:
+    name: Publish GitHub release
+    needs: [resolve, binaries, installer, trivy]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: binaries
+          path: dist/
 
-      # -------------------------------------------------------------
-      # Publish the release. Tag may already exist (auto-created by
-      # git push origin <tag>) — action-gh-release handles create-or-
-      # update and uploads every asset in one step.
-      # -------------------------------------------------------------
+      - uses: actions/download-artifact@v4
+        with:
+          name: installer
+          path: dist/
+
+      - uses: actions/checkout@v4
+        with:
+          path: repo
+          sparse-checkout: scripts/install.ps1
+          sparse-checkout-cone-mode: false
+
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.resolve.outputs.tag }}
+          tag_name: ${{ needs.resolve.outputs.tag }}
           files: |
             dist/argus-linux-amd64
             dist/argus-linux-arm64
@@ -245,6 +359,6 @@ jobs:
             dist/argus-setup.exe
             dist/SHA256SUMS
             dist/*.sbom.spdx.json
-            scripts/install.ps1
+            repo/scripts/install.ps1
           generate_release_notes: true
           fail_on_unmatched_files: true

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/fs"
+	"os"
 	"sort"
 	"strings"
 
@@ -91,11 +92,17 @@ func NewOPAEngine() (*OPAEngine, error) {
 
 		module, parseErr := ast.ParseModule(path, string(content))
 		if parseErr != nil || module == nil {
+			if os.Getenv("ARGUS_DEBUG_RULES") == "1" && parseErr != nil {
+				fmt.Fprintf(os.Stderr, "[argus-rules] parse %s: %v\n", path, parseErr)
+			}
 			return nil // skip unparseable policy rather than failing boot
 		}
 
 		meta, ok := extractMetadata(module)
 		if !ok || meta.ID == "" {
+			if os.Getenv("ARGUS_DEBUG_RULES") == "1" {
+				fmt.Fprintf(os.Stderr, "[argus-rules] no metadata in %s\n", path)
+			}
 			return nil
 		}
 
@@ -107,6 +114,9 @@ func NewOPAEngine() (*OPAEngine, error) {
 			rego.ParsedModule(module),
 		).PrepareForEval(ctx)
 		if prepErr != nil {
+			if os.Getenv("ARGUS_DEBUG_RULES") == "1" {
+				fmt.Fprintf(os.Stderr, "[argus-rules] prep %s (query=%s): %v\n", path, query, prepErr)
+			}
 			return nil // skip this module, keep loading others
 		}
 
