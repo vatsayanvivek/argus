@@ -1,0 +1,41 @@
+name: Test
+
+# Runs go vet, go test, and the race detector on every push and PR
+# (PRs are disabled in repo settings — this still catches direct
+# pushes to main).
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    name: Test (Go ${{ matrix.go }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go: [ '1.25' ]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go }}
+
+      - name: Run embed-prep
+        run: make embed-prep
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: go build
+        run: go build ./...
+
+      - name: go test
+        run: go test ./... -timeout 120s
+
+      - name: go test -race
+        run: go test ./... -race -timeout 180s

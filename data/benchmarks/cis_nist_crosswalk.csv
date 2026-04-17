@@ -1,0 +1,64 @@
+cis_rule_id,cis_title,nist_800_53_controls,nist_csf_function,iso_27001_control
+cis_1_1,MFA for all users,IA-2;IA-2(1);IA-2(2),Protect,A.9.4.2
+cis_1_2,MFA for privileged users,IA-2(1);AC-6;AC-6(2),Protect,A.9.2.3
+cis_1_3,Guest user reviews,AC-2;AC-6,Identify,A.9.2.5
+cis_1_4,No custom subscription owner roles,AC-6;AC-6(5),Protect,A.9.2.3
+cis_1_5,Subscription owners MFA,IA-2(1);AC-6,Protect,A.9.4.2
+cis_1_6,Restrict external invitations,AC-2;AC-3,Protect,A.9.2.2
+cis_1_7,No expired SP credentials,IA-5;AC-2,Protect,A.9.4.3
+cis_1_8,Block legacy authentication,IA-2;AC-17,Protect,A.9.4.2
+cis_1_9,Password reset notification,IA-5;AU-2,Detect,A.9.4.3
+cis_1_10,Limit subscription owners,AC-6;AC-6(5),Protect,A.9.2.3
+cis_1_11,No roles on disabled accounts,AC-2;AC-2(3),Protect,A.9.2.6
+cis_1_12,No guest users in privileged roles,AC-6;AC-2,Protect,A.9.2.3
+cis_1_13,Access reviews for privileged roles,AC-2(7);AC-6(7),Identify,A.9.2.5
+cis_1_14,PIM for privileged activation,AC-6(2);IA-2,Protect,A.9.2.3
+cis_1_15,No high-privilege Graph perms on apps,AC-6;AC-3,Protect,A.9.2.3
+cis_2_1,Defender for Servers Standard,RA-5;SI-3,Detect,A.12.2.1
+cis_2_2,Defender for App Service Standard,RA-5;SI-4,Detect,A.12.6.1
+cis_2_3,Defender for SQL Standard,RA-5;AU-6,Detect,A.12.6.1
+cis_2_4,Defender for Storage Standard,SI-3;SI-4,Detect,A.12.2.1
+cis_2_5,Defender for Containers Standard,RA-5;SI-4,Detect,A.12.6.1
+cis_2_6,Defender for Key Vault Standard,SI-4;AU-6,Detect,A.12.4.1
+cis_2_7,Defender for DNS Standard,SI-4,Detect,A.13.1.1
+cis_2_8,Defender for ARM Standard,AU-6;SI-4,Detect,A.12.4.1
+cis_3_1,Storage secure transfer required,SC-8;SC-13,Protect,A.13.2.1
+cis_3_2,Storage infrastructure encryption,SC-28;SC-28(1),Protect,A.10.1.1
+cis_3_3,Storage no public blob,AC-3;SC-7,Protect,A.9.4.1
+cis_3_4,Storage default deny network,SC-7;SC-7(5),Protect,A.13.1.3
+cis_3_5,Storage private endpoint,SC-7;SC-7(3),Protect,A.13.1.3
+cis_3_6,Blob soft delete,CP-9;CP-10,Recover,A.12.3.1
+cis_3_7,Container soft delete,CP-9,Recover,A.12.3.1
+cis_3_8,Storage queue/table logging,AU-2;AU-12,Detect,A.12.4.1
+cis_4_1,SQL auditing enabled,AU-2;AU-12,Detect,A.12.4.1
+cis_4_2,SQL TDE,SC-28;SC-28(1),Protect,A.10.1.1
+cis_4_3,SQL threat detection,SI-4;SI-4(2),Detect,A.12.6.1
+cis_4_4,SQL public access disabled,SC-7,Protect,A.13.1.3
+cis_4_5,PostgreSQL SSL enforcement,SC-8;SC-8(1),Protect,A.13.2.1
+cis_4_6,MySQL SSL enforcement,SC-8;SC-8(1),Protect,A.13.2.1
+cis_5_1,Subscription diagnostic setting,AU-2;AU-12,Detect,A.12.4.1
+cis_5_2,Activity log retention 365+,AU-9;AU-11,Detect,A.12.4.2
+cis_5_3,Alert on policy assignment change,AU-6;CM-3,Detect,A.12.1.2
+cis_5_4,Alert on NSG change,AU-6;SC-7,Detect,A.13.1.1
+cis_5_5,Alert on security solution change,AU-6;SI-4,Detect,A.12.6.1
+cis_5_6,Alert on SQL firewall change,AU-6,Detect,A.12.4.1
+cis_6_1,No NSG SSH from internet,SC-7;AC-17,Protect,A.13.1.3
+cis_6_2,No NSG RDP from internet,SC-7;AC-17,Protect,A.13.1.3
+cis_6_3,No NSG UDP services from internet,SC-7,Protect,A.13.1.3
+cis_6_4,Network Watcher enabled all regions,AU-12;SI-4,Detect,A.12.4.1
+cis_6_5,NSG flow logs enabled,AU-2;AU-12,Detect,A.12.4.1
+cis_6_6,No public IP on management VMs,SC-7;AC-17,Protect,A.13.1.3
+cis_7_1,VM endpoint protection,SI-3,Protect,A.12.2.1
+cis_7_2,VM OS disk encrypted,SC-28,Protect,A.10.1.1
+cis_7_3,VM data disks encrypted,SC-28,Protect,A.10.1.1
+cis_7_4,VM vulnerability assessment,RA-5,Identify,A.12.6.1
+cis_8_1,KV soft delete and purge protection,CP-9;SC-12,Recover,A.10.1.2
+cis_8_2,KV key rotation policy,SC-12;SC-12(2),Protect,A.10.1.2
+cis_8_3,KV diagnostic settings configured,AU-2;AU-12,Detect,A.12.4.1
+cis_8_4,KV private endpoint,SC-7(3),Protect,A.13.1.3
+cis_8_5,KV diagnostic logs captured,AU-9;AU-12,Detect,A.12.4.1
+cis_9_1,App Service HTTPS only,SC-8;SC-13,Protect,A.13.2.1
+cis_9_2,App Service min TLS 1.2,SC-8(1),Protect,A.13.2.1
+cis_9_3,App Service remote debugging disabled,CM-7,Protect,A.12.1.2
+cis_9_4,App Service HTTP/2 enabled,SC-8,Protect,A.13.2.1
+cis_9_5,App Service managed identity,IA-5;IA-2,Protect,A.9.2.1

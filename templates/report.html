@@ -1,0 +1,2255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ARGUS Blindspot Report — {{ .SubscriptionName }}</title>
+<style>
+  /* ============================================================
+     ARGUS — Blindspot Report
+     Modern consulting-deliverable stylesheet
+     ============================================================ */
+
+  :root {
+    /* Brand palette */
+    --navy:          #0f2942;
+    --navy-deep:     #0a1d30;
+    --navy-soft:     #14385a;
+    --ink:           #1a2332;
+    --muted:         #6c7a89;
+    --muted-light:   #8a97a6;
+    --rule:          #e3e8ef;
+    --rule-soft:     #eef1f6;
+    --paper:         #ffffff;
+    --surface:       #f7f9fc;
+    --surface-alt:   #fafbfd;
+    --accent:        #6c3483;
+    --accent-soft:   #f3ecf7;
+    --accent-light:  #b27bc8;
+
+    /* Status colors */
+    --danger:        #c0392b;
+    --danger-soft:   #fdeeec;
+    --warning:       #d35400;
+    --warning-soft:  #fdf2e9;
+    --caution:       #d4ac0d;
+    --caution-soft:  #fcf5d7;
+    --success:       #27ae60;
+    --success-soft:  #e9f7ef;
+
+    /* Gradients */
+    --grad-header:   linear-gradient(135deg, #0f2942 0%, #14385a 45%, #4a2669 100%);
+    --grad-gold:     linear-gradient(90deg, #d4ac0d, #f39c12);
+    --grad-danger:   linear-gradient(90deg, #c0392b, #e74c3c);
+    --grad-success:  linear-gradient(90deg, #27ae60, #2ecc71);
+    --grad-warn:     linear-gradient(90deg, #d35400, #e67e22);
+    --grad-caution:  linear-gradient(90deg, #d4ac0d, #f1c40f);
+    --grad-accent:   linear-gradient(135deg, #6c3483 0%, #9b59b6 100%);
+    --grad-rainbow:  linear-gradient(90deg, #c0392b, #d35400, #d4ac0d, #27ae60, #6c3483);
+
+    /* Shadow */
+    --shadow-sm:     0 1px 2px rgba(15,41,66,0.06);
+    --shadow-card:   0 1px 3px rgba(15,41,66,0.08), 0 1px 2px rgba(15,41,66,0.06);
+    --shadow-lift:   0 4px 12px rgba(15,41,66,0.10), 0 2px 4px rgba(15,41,66,0.06);
+    --shadow-hero:   0 12px 40px rgba(15,41,66,0.15), 0 4px 12px rgba(15,41,66,0.08);
+
+    /* Radius */
+    --r-sm: 4px;
+    --r-md: 8px;
+    --r-lg: 12px;
+    --r-xl: 16px;
+
+    /* Typography */
+    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --font-mono: "SF Mono", "JetBrains Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    font-family: var(--font-sans);
+    color: var(--ink);
+    background: var(--surface);
+    font-size: 14px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  .page {
+    max-width: 1240px;
+    margin: 0 auto;
+    background: var(--paper);
+    box-shadow: 0 0 60px rgba(15,41,66,0.06);
+  }
+
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  code, pre, .mono { font-family: var(--font-mono); }
+
+  .muted { color: var(--muted); font-weight: 400; }
+  .muted-strong { color: var(--muted-light); }
+
+  /* ============================================================
+     COVER PAGE
+     ============================================================ */
+  .cover {
+    position: relative;
+    background: var(--grad-header);
+    color: #fff;
+    padding: 0;
+    overflow: hidden;
+  }
+  .cover::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background:
+      radial-gradient(ellipse at top left, rgba(108,52,131,0.35) 0%, transparent 55%),
+      radial-gradient(ellipse at bottom right, rgba(212,172,13,0.12) 0%, transparent 55%);
+    pointer-events: none;
+  }
+  .cover-header {
+    position: relative;
+    min-height: 280px;
+    padding: 48px 64px 40px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 40px;
+    z-index: 1;
+  }
+  .cover-header::after {
+    content: "";
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    height: 4px;
+    background: var(--grad-rainbow);
+  }
+  .brand {
+    max-width: 580px;
+  }
+  .brand-mark {
+    font-size: 72px;
+    font-weight: 900;
+    letter-spacing: 12px;
+    line-height: 0.95;
+    color: #fff;
+    text-shadow: 0 4px 24px rgba(0,0,0,0.3);
+    margin-bottom: 6px;
+  }
+  .brand-rule {
+    width: 80px;
+    height: 3px;
+    background: var(--grad-gold);
+    margin: 14px 0 16px;
+    border-radius: 2px;
+  }
+  .brand-tagline {
+    font-size: 18px;
+    font-weight: 500;
+    color: #d8e4f2;
+    letter-spacing: 0.3px;
+    margin-bottom: 8px;
+  }
+  .brand-sub {
+    font-size: 12px;
+    letter-spacing: 3px;
+    color: #a0c8e8;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+  .cover-meta {
+    text-align: right;
+    font-size: 12px;
+    color: #c8d6e6;
+    background: rgba(0,0,0,0.18);
+    backdrop-filter: blur(6px);
+    padding: 18px 22px;
+    border-radius: var(--r-md);
+    border: 1px solid rgba(255,255,255,0.08);
+    min-width: 260px;
+  }
+  .cover-meta .cm-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 18px;
+    padding: 5px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+  .cover-meta .cm-row:last-child { border-bottom: none; }
+  .cover-meta .cm-k {
+    color: #7fb3e8;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    font-size: 10px;
+    font-weight: 700;
+  }
+  .cover-meta .cm-v {
+    color: #fff;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    word-break: break-all;
+    text-align: right;
+  }
+  .cover-meta .cm-v.name {
+    font-family: var(--font-sans);
+    font-weight: 600;
+    font-size: 13px;
+  }
+
+  /* Hero grade card (below gradient header) */
+  .hero-wrap {
+    position: relative;
+    padding: 0 64px;
+    margin-top: -60px;
+    margin-bottom: 48px;
+    z-index: 2;
+  }
+  .hero-card {
+    background: var(--paper);
+    border-radius: var(--r-lg);
+    box-shadow: var(--shadow-hero);
+    padding: 36px 48px;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 48px;
+    align-items: center;
+    border: 1px solid var(--rule);
+  }
+  .hero-grade {
+    text-align: center;
+    min-width: 160px;
+  }
+  .hero-grade-letter {
+    font-size: 140px;
+    font-weight: 900;
+    line-height: 0.85;
+    margin: 0;
+    font-family: var(--font-sans);
+    letter-spacing: -4px;
+  }
+  .hero-grade-label {
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: var(--muted);
+    text-transform: uppercase;
+    font-weight: 700;
+    margin-top: 10px;
+  }
+  .grade-A { color: var(--success); }
+  .grade-B { color: #6ec05f; }
+  .grade-C { color: var(--caution); }
+  .grade-D { color: var(--warning); }
+  .grade-F { color: var(--danger); }
+
+  .hero-mid {
+    border-left: 1px solid var(--rule);
+    border-right: 1px solid var(--rule);
+    padding: 4px 36px;
+  }
+  .hero-score-value {
+    font-size: 56px;
+    font-weight: 800;
+    color: var(--navy);
+    line-height: 1;
+    letter-spacing: -1.5px;
+  }
+  .hero-score-unit {
+    font-size: 20px;
+    color: var(--muted);
+    font-weight: 500;
+    margin-left: 6px;
+  }
+  .hero-score-label {
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    text-transform: uppercase;
+    font-weight: 700;
+    margin-top: 6px;
+  }
+  .hero-maturity {
+    margin-top: 18px;
+    display: inline-block;
+    padding: 6px 14px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+  }
+  .hero-counts {
+    display: grid;
+    gap: 10px;
+  }
+  .hero-count-row {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    font-size: 12px;
+  }
+  .hero-count-num {
+    font-size: 22px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    min-width: 44px;
+    text-align: right;
+    color: var(--navy);
+  }
+  .hero-count-label {
+    text-transform: uppercase;
+    color: var(--muted);
+    letter-spacing: 1px;
+    font-size: 10px;
+    font-weight: 600;
+  }
+
+  .cover-confidential {
+    text-align: center;
+    padding: 0 64px 28px;
+    font-size: 10px;
+    color: var(--muted-light);
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    font-weight: 500;
+  }
+
+  /* ============================================================
+     SECTIONS
+     ============================================================ */
+  section {
+    padding: 48px 64px;
+    border-bottom: 1px solid var(--rule-soft);
+    background: var(--paper);
+  }
+  section.tight { padding-top: 28px; padding-bottom: 28px; }
+
+  h2.section-title {
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--navy);
+    margin-bottom: 6px;
+    padding-bottom: 14px;
+    border-bottom: 3px solid var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    letter-spacing: -0.3px;
+  }
+  h2.section-title .count-pill {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 5px 12px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    border-radius: 999px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  h2.section-title .count-pill.danger {
+    background: var(--danger-soft);
+    color: var(--danger);
+  }
+  .section-subtitle {
+    font-size: 13px;
+    color: var(--muted);
+    margin-top: 12px;
+    margin-bottom: 26px;
+    font-weight: 400;
+  }
+  h3.sub-heading {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--navy);
+    margin-top: 28px;
+    margin-bottom: 14px;
+    letter-spacing: -0.2px;
+  }
+
+  /* ============================================================
+     WARNING BANNER (Graph permissions)
+     ============================================================ */
+  .warn-banner {
+    margin: 0;
+    padding: 16px 64px;
+    background: #fff9db;
+    border-top: 1px solid #f7d560;
+    border-bottom: 1px solid #f7d560;
+    color: #5c4a00;
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    font-size: 13px;
+    line-height: 1.55;
+  }
+  .warn-icon {
+    font-size: 20px;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+  .warn-banner strong { color: #3a2e00; }
+  .warn-banner code {
+    background: rgba(0,0,0,0.08);
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 12px;
+  }
+  .warn-missing {
+    margin-top: 6px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: #6c5400;
+  }
+
+  /* ============================================================
+     TREND BANNER
+     ============================================================ */
+  .trend-banner {
+    margin: 0;
+    padding: 18px 64px;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    font-size: 13px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .trend-IMPROVING { background: var(--success-soft); color: #14532d; border-left: 6px solid var(--success); }
+  .trend-DEGRADING { background: var(--danger-soft);  color: #5a1a12; border-left: 6px solid var(--danger); }
+  .trend-STABLE    { background: var(--surface);      color: var(--navy); border-left: 6px solid var(--muted); }
+  .trend-arrow { font-size: 22px; line-height: 1; font-weight: 900; }
+  .trend-detail { flex: 1; }
+  .trend-detail strong { font-weight: 700; }
+  .trend-delta {
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 14px;
+  }
+
+  /* ============================================================
+     BLINDSPOTS (executive lead)
+     ============================================================ */
+  .blindspot-lead {
+    font-size: 17px;
+    font-weight: 500;
+    color: var(--navy);
+    padding: 24px 28px;
+    background: linear-gradient(135deg, #f7f9fc 0%, #eef4fa 100%);
+    border-left: 5px solid var(--accent);
+    border-radius: var(--r-md);
+    margin-bottom: 22px;
+    line-height: 1.65;
+    box-shadow: var(--shadow-sm);
+  }
+  .blindspot-lead strong { color: var(--accent); font-weight: 700; }
+  .story-narrative {
+    font-size: 14.5px;
+    color: #2c3e50;
+    margin-bottom: 28px;
+    line-height: 1.75;
+  }
+  .why-matters {
+    background: var(--caution-soft);
+    border: 1px solid #f1c40f;
+    border-left: 4px solid var(--caution);
+    border-radius: var(--r-md);
+    padding: 16px 22px;
+    margin-bottom: 28px;
+    font-size: 13px;
+    color: #5c4a00;
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+  }
+  .why-matters .wm-icon {
+    font-size: 18px;
+    flex-shrink: 0;
+    line-height: 1.2;
+  }
+  .why-matters strong { color: #3a2e00; }
+
+  /* Severity summary cards */
+  .sev-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-bottom: 28px;
+  }
+  .sev-card {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-radius: var(--r-md);
+    padding: 18px 20px;
+    box-shadow: var(--shadow-card);
+    position: relative;
+    overflow: hidden;
+  }
+  .sev-card::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 4px;
+  }
+  .sev-card.CRITICAL::before { background: var(--grad-danger); }
+  .sev-card.HIGH::before     { background: var(--grad-warn); }
+  .sev-card.MEDIUM::before   { background: var(--grad-caution); }
+  .sev-card.LOW::before      { background: var(--grad-success); }
+  .sev-card-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .sev-card-val {
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--navy);
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+  }
+  .sev-card-unit {
+    font-size: 11px;
+    color: var(--muted);
+    font-weight: 500;
+    margin-top: 2px;
+  }
+
+  /* ============================================================
+     STORY VISUALS (gauge + pillar bars)
+     ============================================================ */
+  .story-visuals {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    gap: 48px;
+    align-items: center;
+    background: var(--surface);
+    padding: 28px 32px;
+    border-radius: var(--r-lg);
+    border: 1px solid var(--rule);
+  }
+  .gauge-wrap { text-align: center; }
+  .gauge-svg { display: block; margin: 0 auto; }
+  .gauge-label {
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 10px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    font-weight: 700;
+  }
+  .pillar-bars { flex: 1; }
+  .pillar-bar-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 14px;
+  }
+  .pillar-bar-row:last-child { margin-bottom: 0; }
+  .pillar-bar-name {
+    flex: 0 0 120px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--navy);
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+  }
+  .pillar-bar-track {
+    flex: 1;
+    height: 22px;
+    background: #e8ecf2;
+    border-radius: 999px;
+    overflow: hidden;
+    position: relative;
+    box-shadow: inset 0 1px 2px rgba(15,41,66,0.06);
+  }
+  .pillar-bar-fill {
+    height: 100%;
+    border-radius: 999px;
+    min-width: 6px;
+    transition: width 0.4s ease;
+  }
+  .pillar-bar-score {
+    flex: 0 0 86px;
+    text-align: right;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--navy);
+    font-variant-numeric: tabular-nums;
+  }
+  .fill-SATISFIED { background: var(--grad-success); }
+  .fill-AT_RISK   { background: var(--grad-caution); }
+  .fill-VIOLATED  { background: var(--grad-danger); }
+
+  /* ============================================================
+     QUICK WINS
+     ============================================================ */
+  .qw-intro {
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 20px;
+  }
+  table.quick-wins {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 13px;
+    border: 1px solid var(--rule);
+    border-radius: var(--r-md);
+    overflow: hidden;
+    box-shadow: var(--shadow-card);
+  }
+  table.quick-wins thead th {
+    background: var(--navy);
+    color: #fff;
+    padding: 12px 14px;
+    text-align: left;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    font-weight: 700;
+  }
+  table.quick-wins tbody td {
+    padding: 14px 14px;
+    border-bottom: 1px solid var(--rule-soft);
+    vertical-align: middle;
+  }
+  table.quick-wins tbody tr:last-child td { border-bottom: none; }
+  table.quick-wins tbody tr:nth-child(even) { background: var(--surface-alt); }
+  table.quick-wins tbody tr:hover { background: var(--accent-soft); }
+  .qw-num {
+    font-size: 20px;
+    font-weight: 900;
+    color: var(--accent);
+    font-family: var(--font-sans);
+    width: 40px;
+    text-align: center;
+  }
+  .qw-fix-title { font-weight: 700; color: var(--navy); }
+  .qw-fix-rule {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+  .qw-chains-broken {
+    font-weight: 800;
+    color: var(--danger);
+    font-size: 16px;
+    text-align: center;
+  }
+  .qw-score-wrap {
+    min-width: 140px;
+  }
+  .qw-score-bar {
+    position: relative;
+    height: 20px;
+    background: var(--rule-soft);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+  .qw-score-fill {
+    position: absolute;
+    top: 0; left: 0;
+    height: 100%;
+    background: var(--grad-success);
+    border-radius: 999px;
+    transition: width 0.4s ease;
+  }
+  .qw-score-text {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--navy);
+    font-variant-numeric: tabular-nums;
+  }
+  .qw-effort {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .qw-affected {
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    color: var(--navy);
+    text-align: center;
+  }
+
+  /* ============================================================
+     ATTACK CHAINS
+     ============================================================ */
+  .chains-intro {
+    background: var(--danger-soft);
+    border: 1px solid #f5c6c0;
+    border-left: 5px solid var(--danger);
+    padding: 18px 24px;
+    border-radius: var(--r-md);
+    margin-bottom: 28px;
+    font-size: 13px;
+    color: #5a2320;
+    line-height: 1.65;
+  }
+  .chains-intro strong { color: var(--danger); font-weight: 800; }
+  .chain-card {
+    border: 1px solid var(--rule);
+    border-left: 6px solid var(--rule);
+    border-radius: var(--r-lg);
+    margin-bottom: 32px;
+    overflow: hidden;
+    background: var(--paper);
+    box-shadow: var(--shadow-card);
+  }
+  .chain-card.sev-CRITICAL { border-left-color: var(--danger); }
+  .chain-card.sev-HIGH     { border-left-color: var(--warning); }
+  .chain-card.sev-MEDIUM   { border-left-color: var(--caution); }
+  .chain-card.sev-LOW      { border-left-color: var(--success); }
+  .chain-head {
+    padding: 20px 26px 18px;
+    background: linear-gradient(180deg, var(--surface-alt) 0%, var(--paper) 100%);
+    border-bottom: 1px solid var(--rule);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+  .chain-id-badge {
+    background: var(--grad-accent);
+    color: #fff;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 800;
+    padding: 6px 12px;
+    border-radius: var(--r-sm);
+    letter-spacing: 0.8px;
+    box-shadow: var(--shadow-sm);
+  }
+  .chain-title {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--navy);
+    flex: 1;
+    min-width: 260px;
+    letter-spacing: -0.2px;
+  }
+  .sev-badge {
+    font-size: 10px;
+    font-weight: 800;
+    padding: 5px 12px;
+    border-radius: var(--r-sm);
+    color: #fff;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    display: inline-block;
+  }
+  .sev-badge.CRITICAL { background: var(--danger); }
+  .sev-badge.HIGH     { background: var(--warning); }
+  .sev-badge.MEDIUM   { background: var(--caution); color: #3c2e02; }
+  .sev-badge.LOW      { background: var(--success); }
+  .likelihood-badge {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 4px 10px;
+    border: 1px solid var(--rule);
+    background: #fff;
+    border-radius: var(--r-sm);
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+  }
+  .chain-body { padding: 24px 26px; }
+  .chain-env {
+    font-size: 12.5px;
+    color: var(--muted);
+    font-style: italic;
+    margin-bottom: 16px;
+    padding: 12px 16px;
+    background: var(--surface);
+    border-radius: var(--r-sm);
+    border-left: 3px solid var(--navy);
+  }
+  .chain-narrative {
+    font-size: 14px;
+    color: #2c3e50;
+    margin-bottom: 22px;
+    line-height: 1.75;
+    padding: 18px 22px;
+    background: linear-gradient(135deg, #fafbfd 0%, #f3ecf7 100%);
+    border-radius: var(--r-md);
+    border-left: 4px solid var(--accent);
+  }
+  .chain-subhead {
+    font-size: 10px;
+    font-weight: 800;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 12px;
+    margin-top: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .chain-subhead::before {
+    content: "";
+    display: inline-block;
+    width: 16px;
+    height: 2px;
+    background: var(--accent);
+  }
+
+  table.steps {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    margin-bottom: 20px;
+    font-size: 12.5px;
+    border: 1px solid var(--rule);
+    border-radius: var(--r-md);
+    overflow: hidden;
+  }
+  table.steps th {
+    background: var(--navy);
+    color: #fff;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 10px 12px;
+    text-align: left;
+    font-weight: 700;
+  }
+  table.steps td {
+    padding: 12px 12px;
+    border-bottom: 1px solid var(--rule-soft);
+    vertical-align: top;
+  }
+  table.steps tr:last-child td { border-bottom: none; }
+  table.steps tr:nth-child(even) td { background: var(--surface-alt); }
+  table.steps td.step-num {
+    font-weight: 900;
+    color: var(--accent);
+    text-align: center;
+    width: 36px;
+    font-size: 14px;
+  }
+  table.steps td.mitre {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: #555;
+    white-space: nowrap;
+  }
+  table.steps td.enabled-by {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--danger);
+  }
+
+  .blast-box {
+    background: var(--warning-soft);
+    border: 1px solid #f5d5c4;
+    border-left: 4px solid var(--warning);
+    border-radius: var(--r-md);
+    padding: 16px 22px;
+    margin-bottom: 18px;
+  }
+  .blast-box .chain-subhead { color: var(--warning); }
+  .blast-box .chain-subhead::before { background: var(--warning); }
+  .blast-grid {
+    display: grid;
+    grid-template-columns: 160px 1fr;
+    gap: 10px 20px;
+    font-size: 12.5px;
+  }
+  .blast-grid .bk {
+    color: var(--muted);
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 10px;
+    letter-spacing: 0.8px;
+  }
+  .blast-grid .bv { color: #2c3e50; line-height: 1.6; }
+
+  .affected-list {
+    background: var(--surface);
+    border-left: 4px solid var(--accent);
+    border-radius: var(--r-sm);
+    padding: 12px 18px;
+    margin-bottom: 18px;
+    font-size: 12px;
+    font-family: var(--font-mono);
+    color: var(--navy);
+    max-height: 160px;
+    overflow-y: auto;
+  }
+  .affected-list div { padding: 3px 0; }
+
+  .break-box {
+    background: var(--success-soft);
+    border: 2px solid var(--success);
+    border-radius: var(--r-md);
+    padding: 16px 22px;
+    margin-bottom: 18px;
+  }
+  .break-box .chain-subhead { color: #1e7e4f; }
+  .break-box .chain-subhead::before { background: #1e7e4f; }
+  .break-box .priority {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    background: #fff;
+    padding: 6px 12px;
+    border: 1px solid var(--success);
+    border-radius: var(--r-sm);
+    display: inline-block;
+    color: #1e7e4f;
+    font-weight: 700;
+    margin-bottom: 10px;
+  }
+  .break-box ul {
+    margin-left: 20px;
+    font-size: 12.5px;
+    color: #2c3e50;
+  }
+  .break-box ul li {
+    margin-bottom: 4px;
+    font-family: var(--font-mono);
+  }
+
+  .reg-impact {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+  }
+  .reg-badge {
+    background: #eaf1f8;
+    border: 1px solid #b8cde0;
+    color: var(--navy);
+    padding: 6px 12px;
+    font-size: 11px;
+    border-radius: var(--r-sm);
+  }
+  .reg-badge strong { color: var(--accent); }
+
+  /* ============================================================
+     PILLAR CARDS
+     ============================================================ */
+  .pillar-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 16px;
+  }
+  .pillar-card {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-left: 5px solid var(--muted);
+    border-radius: var(--r-md);
+    padding: 20px 18px 18px;
+    box-shadow: var(--shadow-card);
+    position: relative;
+  }
+  .pillar-card.status-SATISFIED { border-left-color: var(--success); }
+  .pillar-card.status-AT_RISK   { border-left-color: var(--warning); }
+  .pillar-card.status-VIOLATED  { border-left-color: var(--danger); }
+  .pillar-card .pc-name {
+    font-size: 10px;
+    font-weight: 800;
+    color: var(--navy);
+    text-transform: uppercase;
+    letter-spacing: 1.4px;
+    margin-bottom: 12px;
+  }
+  .pillar-card .pc-score {
+    font-size: 40px;
+    font-weight: 900;
+    color: var(--navy);
+    line-height: 1;
+    letter-spacing: -1.5px;
+    font-variant-numeric: tabular-nums;
+  }
+  .pillar-card .pc-score-unit {
+    font-size: 13px;
+    color: var(--muted);
+    font-weight: 600;
+    margin-left: 4px;
+  }
+  .pillar-card .pc-grade {
+    font-size: 13px;
+    font-weight: 800;
+    margin-top: 4px;
+    margin-bottom: 12px;
+  }
+  .pillar-card .pc-tenet {
+    font-size: 9px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    margin-bottom: 10px;
+    min-height: 26px;
+    line-height: 1.4;
+  }
+  .pillar-card .pc-progress {
+    height: 6px;
+    background: var(--rule-soft);
+    border-radius: 999px;
+    overflow: hidden;
+    margin-bottom: 10px;
+  }
+  .pillar-card .pc-progress > div {
+    height: 100%;
+    border-radius: 999px;
+    min-width: 4px;
+  }
+  .pillar-card .pc-status {
+    font-size: 9px;
+    font-weight: 800;
+    padding: 4px 10px;
+    border-radius: 999px;
+    display: inline-block;
+    letter-spacing: 0.8px;
+  }
+  .pillar-card .pc-count {
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 10px;
+    font-weight: 500;
+  }
+  .status-SATISFIED { background: #d4efdf; color: #1e7e4f; }
+  .status-AT_RISK   { background: #fdebd0; color: #a55d00; }
+  .status-VIOLATED  { background: #fadbd8; color: #922b21; }
+
+  /* ============================================================
+     FINDINGS TABLE
+     ============================================================ */
+  .findings-count-bar {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+  .fcb-item {
+    flex: 1;
+    min-width: 180px;
+    background: var(--surface);
+    border-radius: var(--r-md);
+    padding: 14px 18px;
+    border: 1px solid var(--rule);
+    border-left: 4px solid var(--muted);
+  }
+  .fcb-item.CRITICAL { border-left-color: var(--danger); }
+  .fcb-item.HIGH     { border-left-color: var(--warning); }
+  .fcb-item.MEDIUM   { border-left-color: var(--caution); }
+  .fcb-item.LOW      { border-left-color: var(--success); }
+  .fcb-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .fcb-primary {
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--navy);
+    margin-top: 4px;
+    font-variant-numeric: tabular-nums;
+  }
+  .fcb-secondary {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  table.findings-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 12.5px;
+    border: 1px solid var(--rule);
+    border-radius: var(--r-md);
+    overflow: hidden;
+    box-shadow: var(--shadow-card);
+  }
+  table.findings-table thead th {
+    background: var(--navy);
+    color: #fff;
+    padding: 12px 14px;
+    text-align: left;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    font-weight: 700;
+    white-space: nowrap;
+    user-select: none;
+  }
+  table.findings-table thead th.sortable { cursor: pointer; }
+  table.findings-table thead th.sortable:hover { background: var(--navy-soft); }
+  .sort-arrow {
+    color: var(--caution);
+    font-size: 10px;
+    display: inline-block;
+    margin-left: 4px;
+  }
+  table.findings-table tbody tr {
+    background: var(--paper);
+    border-bottom: 1px solid var(--rule-soft);
+  }
+  table.findings-table tbody tr:nth-child(even) { background: var(--surface-alt); }
+  table.findings-table tbody tr:hover { background: var(--accent-soft); }
+  table.findings-table tbody td {
+    padding: 12px 14px;
+    vertical-align: top;
+    border-bottom: 1px solid var(--rule-soft);
+  }
+  table.findings-table tbody tr:last-child td { border-bottom: none; }
+  table.findings-table .fid {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: #555;
+    white-space: nowrap;
+  }
+  table.findings-table .chain-flag {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--accent);
+    background: var(--accent-soft);
+    padding: 3px 8px;
+    border-radius: 999px;
+    display: inline-block;
+    margin-right: 3px;
+    font-weight: 700;
+  }
+  details.finding-details { margin: 10px 0 0 0; }
+  details.finding-details summary {
+    cursor: pointer;
+    font-size: 11px;
+    color: var(--navy);
+    font-weight: 700;
+    user-select: none;
+    padding: 6px 10px;
+    background: var(--surface);
+    border-radius: var(--r-sm);
+    display: inline-block;
+  }
+  details.finding-details summary:hover { background: var(--accent-soft); color: var(--accent); }
+  details.finding-details[open] summary { margin-bottom: 10px; }
+  .detail-pane {
+    background: var(--surface);
+    border-left: 3px solid var(--navy);
+    padding: 14px 18px;
+    margin-top: 6px;
+    border-radius: var(--r-sm);
+  }
+  .detail-pane h4 {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: var(--muted);
+    margin-top: 12px;
+    margin-bottom: 5px;
+    font-weight: 800;
+  }
+  .detail-pane h4:first-child { margin-top: 0; }
+  .detail-pane p {
+    font-size: 12px;
+    color: #2c3e50;
+    margin-bottom: 5px;
+    line-height: 1.65;
+  }
+  .detail-pane pre {
+    background: var(--navy-deep);
+    color: #e4ecf7;
+    padding: 12px 14px;
+    border-radius: var(--r-sm);
+    font-size: 11px;
+    font-family: var(--font-mono);
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+  .detail-pane dl {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 4px 16px;
+    font-size: 11px;
+  }
+  .detail-pane dt { color: var(--muted); font-weight: 700; }
+  .detail-pane dd { color: #2c3e50; font-family: var(--font-mono); word-break: break-all; }
+  .resource-head {
+    font-weight: 700;
+    color: var(--navy);
+    font-size: 13px;
+  }
+  .resource-type {
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+  .resource-dedup {
+    font-size: 10px;
+    color: var(--accent);
+    font-weight: 700;
+    margin-top: 3px;
+    font-family: var(--font-mono);
+  }
+  .resource-scope {
+    font-size: 10px;
+    color: var(--muted);
+    font-weight: 600;
+    margin-top: 2px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+
+  /* ============================================================
+     COMPLIANCE MATRIX
+     ============================================================ */
+  table.matrix {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 12.5px;
+    border: 1px solid var(--rule);
+    border-radius: var(--r-md);
+    overflow: hidden;
+    box-shadow: var(--shadow-card);
+  }
+  table.matrix thead th {
+    background: var(--surface);
+    color: var(--navy);
+    padding: 12px 14px;
+    text-align: left;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    font-weight: 800;
+    border-bottom: 2px solid var(--rule);
+  }
+  table.matrix tbody tr:nth-child(even) { background: var(--surface-alt); }
+  table.matrix tbody td {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--rule-soft);
+    vertical-align: top;
+  }
+  table.matrix tbody tr:last-child td { border-bottom: none; }
+  table.matrix .tenet-name { font-weight: 700; color: var(--navy); }
+  table.matrix .cis-list {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: #555;
+  }
+
+  /* ============================================================
+     REMEDIATION ROADMAP
+     ============================================================ */
+  .roadmap-item {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-radius: var(--r-md);
+    margin-bottom: 16px;
+    padding: 18px 22px;
+    box-shadow: var(--shadow-sm);
+  }
+  .roadmap-item.breaks-chain {
+    border-left: 5px solid var(--success);
+    background: var(--success-soft);
+  }
+  .roadmap-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+  }
+  .roadmap-rule {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .roadmap-title {
+    font-weight: 700;
+    color: var(--navy);
+    flex: 1;
+    min-width: 260px;
+    font-size: 14px;
+  }
+  .roadmap-effort {
+    font-size: 10px;
+    background: var(--rule-soft);
+    padding: 4px 10px;
+    border-radius: var(--r-sm);
+    color: var(--muted);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+  }
+  .breaks-badge {
+    font-size: 9px;
+    background: var(--success);
+    color: #fff;
+    padding: 4px 10px;
+    border-radius: 999px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    font-weight: 800;
+  }
+  .roadmap-resource {
+    font-size: 12px;
+    color: #1e4060;
+    margin: 6px 0 10px;
+    font-weight: 600;
+  }
+  .roadmap-resource code {
+    background: #fff3cd;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+  }
+  .roadmap-item p {
+    font-size: 12.5px;
+    color: #2c3e50;
+    margin-bottom: 8px;
+    line-height: 1.65;
+  }
+  .roadmap-item pre {
+    background: var(--navy-deep);
+    color: #e4ecf7;
+    padding: 12px 16px;
+    border-radius: var(--r-sm);
+    font-size: 11px;
+    font-family: var(--font-mono);
+    overflow-x: auto;
+    white-space: pre-wrap;
+    margin-top: 10px;
+  }
+
+  /* ============================================================
+     DRIFT
+     ============================================================ */
+  table.drift {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 12px;
+    border: 1px solid var(--rule);
+    border-radius: var(--r-md);
+    overflow: hidden;
+    box-shadow: var(--shadow-card);
+  }
+  table.drift thead th {
+    background: var(--navy);
+    color: #fff;
+    padding: 12px 14px;
+    text-align: left;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    font-weight: 700;
+  }
+  table.drift tbody tr:nth-child(even) { background: var(--surface-alt); }
+  table.drift tbody tr:hover { background: var(--accent-soft); }
+  table.drift tbody td {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--rule-soft);
+    vertical-align: top;
+  }
+  table.drift tbody tr:last-child td { border-bottom: none; }
+  .drift-pct-bar {
+    display: inline-block;
+    width: 90px;
+    height: 8px;
+    background: var(--rule-soft);
+    border-radius: 999px;
+    margin-left: 6px;
+    vertical-align: middle;
+    overflow: hidden;
+  }
+  .drift-pct-fill {
+    height: 100%;
+    background: var(--grad-warn);
+    border-radius: 999px;
+  }
+
+  /* ============================================================
+     APPENDIX
+     ============================================================ */
+  details.appendix summary {
+    cursor: pointer;
+    font-weight: 800;
+    color: var(--navy);
+    padding: 14px 18px;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: var(--r-md);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    user-select: none;
+  }
+  details.appendix summary:hover { background: var(--accent-soft); }
+  details.appendix pre {
+    background: var(--navy-deep);
+    color: #d4e4f3;
+    padding: 18px;
+    border-radius: var(--r-md);
+    font-size: 10px;
+    font-family: var(--font-mono);
+    overflow-x: auto;
+    max-height: 600px;
+    margin-top: 12px;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  /* ============================================================
+     FOOTER
+     ============================================================ */
+  footer {
+    padding: 22px 64px;
+    text-align: center;
+    font-size: 11px;
+    color: var(--muted);
+    background: var(--surface);
+    border-top: 1px solid var(--rule);
+  }
+  footer strong { color: var(--navy); font-weight: 700; }
+  footer a { color: var(--accent); }
+  .footer-print { display: none; }
+
+  /* ============================================================
+     MISC
+     ============================================================ */
+  .empty {
+    padding: 28px;
+    text-align: center;
+    color: var(--muted);
+    font-style: italic;
+    background: var(--surface);
+    border: 1px dashed var(--rule);
+    border-radius: var(--r-md);
+  }
+
+  /* ============================================================
+     PRINT
+     ============================================================ */
+  @media print {
+    @page { margin: 0.5in; }
+    html, body {
+      background: #fff !important;
+      color: #000 !important;
+      font-size: 10pt;
+    }
+    .page {
+      max-width: 100%;
+      box-shadow: none !important;
+    }
+    section {
+      padding: 20px 0 !important;
+      page-break-inside: auto;
+    }
+    .cover { break-after: page; }
+    .cover-header { padding: 30px 0 !important; }
+    .hero-wrap { padding: 0 !important; margin-top: -40px; }
+    .chain-card,
+    .roadmap-item,
+    .pillar-card,
+    .hero-card,
+    table.findings-table tbody tr,
+    table.drift tbody tr,
+    table.quick-wins tbody tr {
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+    h2.section-title { page-break-after: avoid; }
+    .sort-arrow,
+    .findings-table thead th.sortable {
+      cursor: default !important;
+    }
+    .sort-arrow { display: none !important; }
+    details { page-break-inside: avoid; }
+    details:not([open]) > *:not(summary) { display: none; }
+    a { color: #000 !important; text-decoration: underline; }
+    a[href^="http"]:after,
+    a[href^="https"]:after {
+      content: " (" attr(href) ")";
+      font-size: 9pt;
+      color: #555;
+    }
+    a[href^="#"]:after { content: ""; }
+    .footer-print { display: block; margin-top: 8px; font-size: 9pt; color: #555; }
+    footer { background: #fff !important; border-top: 1px solid #ccc; }
+    .warn-banner { background: #fff !important; border: 2px solid #000; color: #000 !important; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- =============================================================
+       COVER PAGE
+       ============================================================= -->
+  <section class="cover">
+    <div class="cover-header">
+      <div class="brand">
+        <div class="brand-mark">ARGUS</div>
+        <div class="brand-rule"></div>
+        <div class="brand-tagline">Find the blindspots attackers chain together</div>
+        <div class="brand-sub">Azure Zero Trust Blindspot Assessment</div>
+      </div>
+      <div class="cover-meta">
+        <div class="cm-row">
+          <span class="cm-k">Subscription</span>
+          <span class="cm-v name">{{ .SubscriptionName }}</span>
+        </div>
+        <div class="cm-row">
+          <span class="cm-k">Sub ID</span>
+          <span class="cm-v">{{ .SubscriptionID }}</span>
+        </div>
+        <div class="cm-row">
+          <span class="cm-k">Tenant</span>
+          <span class="cm-v">{{ .TenantID }}</span>
+        </div>
+        <div class="cm-row">
+          <span class="cm-k">Scanned</span>
+          <span class="cm-v">{{ .ScanTime }}</span>
+        </div>
+        <div class="cm-row">
+          <span class="cm-k">Mode</span>
+          <span class="cm-v">{{ .CollectionMode }}</span>
+        </div>
+        <div class="cm-row">
+          <span class="cm-k">Tool</span>
+          <span class="cm-v">{{ .Tool }} {{ .Version }}</span>
+        </div>
+      </div>
+    </div>
+
+    {{ if .Score }}
+    <div class="hero-wrap">
+      <div class="hero-card">
+        <div class="hero-grade">
+          <div class="hero-grade-letter grade-{{ .Score.Grade }}">{{ .Score.Grade }}</div>
+          <div class="hero-grade-label">Zero Trust Grade</div>
+        </div>
+        <div class="hero-mid">
+          <div>
+            <span class="hero-score-value">{{ printf "%.0f" .Score.OverallScore }}</span>
+            <span class="hero-score-unit">/ 100</span>
+          </div>
+          <div class="hero-score-label">Overall Zero Trust Score</div>
+          {{ if .Score.MaturityLevel }}
+          <div class="hero-maturity">Maturity: {{ .Score.MaturityLevel }}</div>
+          {{ end }}
+        </div>
+        <div class="hero-counts">
+          <div class="hero-count-row">
+            <span class="hero-count-num">{{ len .Chains }}</span>
+            <span class="hero-count-label">Attack Chains</span>
+          </div>
+          <div class="hero-count-row">
+            <span class="hero-count-num">{{ .Score.TotalFindings }}</span>
+            <span class="hero-count-label">Findings</span>
+          </div>
+          <div class="hero-count-row">
+            <span class="hero-count-num">{{ .Score.ResourcesScanned }}</span>
+            <span class="hero-count-label">Resources</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    {{ end }}
+
+    <div class="cover-confidential">
+      Confidential — Prepared for {{ .SubscriptionName }} &middot; Not for redistribution &middot; Generated {{ .GeneratedAt }}
+    </div>
+  </section>
+
+  <!-- =============================================================
+       GRAPH PERMISSIONS WARNING
+       ============================================================= -->
+  {{ if .GraphPermissionsLimited }}
+  <div class="warn-banner">
+    <div class="warn-icon">⚠️</div>
+    <div>
+      <strong>Limited Microsoft Graph access.</strong>
+      CHAIN-002 (App Registration takeover) and several identity rules could not be evaluated.
+      Run <code>./scripts/setup-graph-permissions.sh</code> to grant the required scopes.
+      {{ if .GraphPermissionsMissing }}
+      <div class="warn-missing">
+        Missing: {{ range $i, $s := .GraphPermissionsMissing }}{{ if $i }}, {{ end }}{{ $s }}{{ end }}
+      </div>
+      {{ end }}
+    </div>
+  </div>
+  {{ end }}
+
+  <!-- =============================================================
+       TREND BANNER (optional)
+       ============================================================= -->
+  {{ if and .TrendReport .TrendReport.HasPrevious }}
+  <div class="trend-banner trend-{{ .TrendReport.Trend }}">
+    <div class="trend-arrow">
+      {{ if eq .TrendReport.Trend "IMPROVING" }}▲{{ else if eq .TrendReport.Trend "DEGRADING" }}▼{{ else }}◆{{ end }}
+    </div>
+    <div class="trend-detail">
+      <strong>Posture trend: {{ .TrendReport.Trend }}.</strong>
+      Score moved
+      <span class="trend-delta">{{ if ge .TrendReport.ScoreDelta 0.0 }}+{{ end }}{{ printf "%.1f" .TrendReport.ScoreDelta }}</span>
+      over {{ .TrendReport.DaysSincePrev }} day{{ if ne .TrendReport.DaysSincePrev 1 }}s{{ end }} since the last scan.
+      {{ if .TrendReport.NewCritical }}
+      <strong style="color:var(--danger);">{{ len .TrendReport.NewCritical }} new CRITICAL finding{{ if ne (len .TrendReport.NewCritical) 1 }}s{{ end }}</strong> appeared.
+      {{ end }}
+      {{ if .TrendReport.NewChains }}
+      <strong style="color:var(--danger);">{{ len .TrendReport.NewChains }} new attack chain{{ if ne (len .TrendReport.NewChains) 1 }}s{{ end }}</strong> detected.
+      {{ end }}
+      {{ if .TrendReport.ResolvedFindings }}
+      {{ len .TrendReport.ResolvedFindings }} finding{{ if ne (len .TrendReport.ResolvedFindings) 1 }}s{{ end }} resolved.
+      {{ end }}
+    </div>
+  </div>
+  {{ end }}
+
+  <!-- =============================================================
+       YOUR BLINDSPOTS (formerly Executive Summary)
+       ============================================================= -->
+  <section>
+    <h2 class="section-title">
+      Your Blindspots
+      <span class="count-pill">Executive Brief</span>
+    </h2>
+    <div class="section-subtitle">What scanners missed — and what it means for your environment</div>
+
+    <div class="blindspot-lead">
+      <strong>Defender for Cloud, Wiz, and Prisma</strong> all tell you which controls are broken.
+      <strong>ARGUS</strong> tells you which broken controls <em>combine</em> into a real attack path an
+      adversary can exploit. This is your blindspot view — every chain below is something an
+      isolation-based scanner cannot see.
+    </div>
+
+    <div class="why-matters">
+      <div class="wm-icon">💡</div>
+      <div>
+        <strong>Why this matters.</strong>
+        Each finding below is participating in at least one attack chain. Fixing the chain-breaking
+        findings (highlighted in this report) gives you <strong>80% of the security value for 20% of
+        the effort</strong> — Pareto applied to cloud security.
+      </div>
+    </div>
+
+    <div class="story-narrative">{{ .Narrative }}</div>
+
+    {{ if .Score }}
+    {{ if or .Score.UniqueCriticalResources .Score.UniqueHighResources .Score.UniqueMediumResources .Score.UniqueLowResources }}
+    <div class="sev-summary-grid">
+      <div class="sev-card CRITICAL">
+        <div class="sev-card-label">Critical Resources</div>
+        <div class="sev-card-val">{{ .Score.UniqueCriticalResources }}</div>
+        <div class="sev-card-unit">{{ index .Score.FindingsBySeverity "CRITICAL" }} rule violations</div>
+      </div>
+      <div class="sev-card HIGH">
+        <div class="sev-card-label">High Resources</div>
+        <div class="sev-card-val">{{ .Score.UniqueHighResources }}</div>
+        <div class="sev-card-unit">{{ index .Score.FindingsBySeverity "HIGH" }} rule violations</div>
+      </div>
+      <div class="sev-card MEDIUM">
+        <div class="sev-card-label">Medium Resources</div>
+        <div class="sev-card-val">{{ .Score.UniqueMediumResources }}</div>
+        <div class="sev-card-unit">{{ index .Score.FindingsBySeverity "MEDIUM" }} rule violations</div>
+      </div>
+      <div class="sev-card LOW">
+        <div class="sev-card-label">Low Resources</div>
+        <div class="sev-card-val">{{ .Score.UniqueLowResources }}</div>
+        <div class="sev-card-unit">{{ index .Score.FindingsBySeverity "LOW" }} rule violations</div>
+      </div>
+    </div>
+    {{ else }}
+    <div class="sev-summary-grid">
+      <div class="sev-card CRITICAL">
+        <div class="sev-card-label">Critical</div>
+        <div class="sev-card-val">{{ index .Score.FindingsBySeverity "CRITICAL" }}</div>
+        <div class="sev-card-unit">findings</div>
+      </div>
+      <div class="sev-card HIGH">
+        <div class="sev-card-label">High</div>
+        <div class="sev-card-val">{{ index .Score.FindingsBySeverity "HIGH" }}</div>
+        <div class="sev-card-unit">findings</div>
+      </div>
+      <div class="sev-card MEDIUM">
+        <div class="sev-card-label">Medium</div>
+        <div class="sev-card-val">{{ index .Score.FindingsBySeverity "MEDIUM" }}</div>
+        <div class="sev-card-unit">findings</div>
+      </div>
+      <div class="sev-card LOW">
+        <div class="sev-card-label">Low</div>
+        <div class="sev-card-val">{{ index .Score.FindingsBySeverity "LOW" }}</div>
+        <div class="sev-card-unit">findings</div>
+      </div>
+    </div>
+    {{ end }}
+
+    <div class="story-visuals">
+      <div class="gauge-wrap">
+        {{ $score := .Score.OverallScore }}
+        <svg class="gauge-svg" width="200" height="200" viewBox="0 0 160 160">
+          <circle cx="80" cy="80" r="70" fill="none" stroke="#e8ecf2" stroke-width="14"/>
+          <circle cx="80" cy="80" r="70" fill="none"
+                  stroke="{{ if ge $score 80.0 }}#27ae60{{ else if ge $score 60.0 }}#d4ac0d{{ else if ge $score 40.0 }}#d35400{{ else }}#c0392b{{ end }}"
+                  stroke-width="14"
+                  stroke-linecap="round"
+                  stroke-dasharray="439.82"
+                  stroke-dashoffset="{{ printf "%.2f" (sub 439.82 (mul 4.3982 $score)) }}"
+                  transform="rotate(-90 80 80)"/>
+          <text x="80" y="80" text-anchor="middle" dominant-baseline="central"
+                font-size="42" font-weight="800" fill="#0f2942">{{ printf "%.0f" $score }}</text>
+          <text x="80" y="108" text-anchor="middle" dominant-baseline="central"
+                font-size="11" fill="#6c7a89" letter-spacing="2">/ 100</text>
+        </svg>
+        <div class="gauge-label">Overall Score</div>
+      </div>
+      <div class="pillar-bars">
+        {{ range $name, $p := .Score.PillarScores }}
+        <div class="pillar-bar-row">
+          <div class="pillar-bar-name">{{ $name }}</div>
+          <div class="pillar-bar-track">
+            <div class="pillar-bar-fill fill-{{ $p.TenetStatus }}"
+                 style="width: {{ printf "%.0f" $p.Score }}%;"></div>
+          </div>
+          <div class="pillar-bar-score">{{ printf "%.1f" $p.Score }} ({{ $p.Grade }})</div>
+        </div>
+        {{ end }}
+      </div>
+    </div>
+    {{ end }}
+  </section>
+
+  <!-- =============================================================
+       TOP 5 QUICK WINS
+       ============================================================= -->
+  {{ if .QuickWins }}
+  <section>
+    <h2 class="section-title">
+      Top 5 Quick Wins
+      <span class="count-pill">Pareto</span>
+    </h2>
+    <div class="section-subtitle">
+      Fix these {{ len .QuickWins }} finding{{ if ne (len .QuickWins) 1 }}s{{ end }} and you break the most chains for the least effort.
+    </div>
+    <div class="qw-intro">
+      Each row shows a single finding whose remediation breaks one or more correlated attack chains.
+      Work top-down: highest chain-break count first, lowest effort second.
+    </div>
+
+    <table class="quick-wins">
+      <thead>
+        <tr>
+          <th style="width:50px;">#</th>
+          <th>Fix</th>
+          <th style="width:120px;">Chains Broken</th>
+          <th style="width:180px;">Score Gain</th>
+          <th style="width:100px;">Effort</th>
+          <th style="width:140px;">Affected Resources</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{ range $i, $w := .QuickWins }}
+        <tr>
+          <td class="qw-num">{{ subi $i -1 }}</td>
+          <td>
+            <div class="qw-fix-title">{{ $w.Title }}</div>
+            <div class="qw-fix-rule">{{ $w.RuleID }}</div>
+          </td>
+          <td class="qw-chains-broken">{{ $w.ChainsBroken }}</td>
+          <td>
+            <div class="qw-score-wrap">
+              <div class="qw-score-bar">
+                <div class="qw-score-fill" style="width: {{ if gt $w.ScoreImpact 0.0 }}{{ printf "%.0f" (mul $w.ScoreImpact 5.0) }}{{ else }}0{{ end }}%; max-width: 100%;"></div>
+                <div class="qw-score-text">+{{ printf "%.1f" $w.ScoreImpact }} pts</div>
+              </div>
+            </div>
+          </td>
+          <td class="qw-effort">{{ $w.EffortHours }}h</td>
+          <td class="qw-affected">{{ $w.AffectedResources }}</td>
+        </tr>
+        {{ end }}
+      </tbody>
+    </table>
+  </section>
+  {{ end }}
+
+  <!-- =============================================================
+       ATTACK CHAINS
+       ============================================================= -->
+  <section>
+    <h2 class="section-title">
+      Attack chains in YOUR environment
+      <span class="count-pill danger">{{ len .Chains }} DETECTED</span>
+    </h2>
+    <div class="section-subtitle">Correlated exploit paths — how isolated findings combine into real attacks</div>
+
+    {{ if .Chains }}
+    <div class="chains-intro">
+      <strong>Why chains matter more than findings.</strong>
+      Individual misconfigurations are noise. ARGUS correlates them into concrete exploit paths an
+      attacker would actually walk. Each chain below is a demonstrable path from initial access to
+      a material business impact — <em>break any one link</em> to defeat it. This is the
+      blindspot view that single-control scanners cannot produce.
+    </div>
+
+    {{ range .Chains }}
+    <div class="chain-card sev-{{ .Severity }}">
+      <div class="chain-head">
+        <span class="chain-id-badge">{{ .ID }}</span>
+        <span class="chain-title">{{ .Title }}</span>
+        <span class="sev-badge {{ .Severity }}">{{ .Severity }}</span>
+        <span class="likelihood-badge">Likelihood: {{ .Likelihood }}</span>
+        {{ if .Confidence }}<span class="likelihood-badge">Confidence: {{ .Confidence }}</span>{{ end }}
+      </div>
+      <div class="chain-body">
+        {{ if .EnvironmentSummary }}
+        <div class="chain-env">{{ .EnvironmentSummary }}</div>
+        {{ end }}
+
+        <div class="chain-subhead">Attacker Narrative</div>
+        <div class="chain-narrative">{{ .Narrative }}</div>
+
+        <div class="chain-subhead">Kill Chain Steps</div>
+        <table class="steps">
+          <thead>
+            <tr>
+              <th style="width:44px;">#</th>
+              <th>Actor</th>
+              <th>Action</th>
+              <th>MITRE</th>
+              <th>Enabled By</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{ range .Steps }}
+            <tr>
+              <td class="step-num">{{ .Number }}</td>
+              <td>{{ .Actor }}</td>
+              <td>{{ .Action }}{{ if .Technical }}<br><span style="color:#6c7a89;font-size:11px;">{{ .Technical }}</span>{{ end }}</td>
+              <td class="mitre">{{ .Technique }}</td>
+              <td class="enabled-by">{{ .EnabledBy }}</td>
+            </tr>
+            {{ end }}
+          </tbody>
+        </table>
+
+        <div class="blast-box">
+          <div class="chain-subhead">Blast Radius</div>
+          <div class="blast-grid">
+            <div class="bk">Initial Access</div><div class="bv">{{ .BlastRadius.InitialAccess }}</div>
+            {{ if .BlastRadius.LateralMovement }}
+            <div class="bk">Lateral Movement</div><div class="bv">{{ .BlastRadius.LateralMovement }}</div>
+            {{ end }}
+            <div class="bk">Max Privilege</div><div class="bv">{{ .BlastRadius.MaxPrivilege }}</div>
+            <div class="bk">Data at Risk</div><div class="bv">
+              {{ if .BlastRadius.DataAtRisk }}
+                {{ range $i, $d := .BlastRadius.DataAtRisk }}{{ if $i }}, {{ end }}{{ $d }}{{ end }}
+              {{ else }}<em>None identified</em>{{ end }}
+            </div>
+            {{ if .BlastRadius.ServicesAtRisk }}
+            <div class="bk">Services at Risk</div><div class="bv">
+              {{ range $i, $s := .BlastRadius.ServicesAtRisk }}{{ if $i }}, {{ end }}{{ $s }}{{ end }}
+            </div>
+            {{ end }}
+            <div class="bk">Estimated Scope</div><div class="bv">{{ .BlastRadius.EstimatedScopePerc }}</div>
+          </div>
+        </div>
+
+        {{ if .AffectedResources }}
+        <div class="chain-subhead">Affected Resources <span class="muted">({{ len .AffectedResources }} total)</span></div>
+        <div class="affected-list">
+          {{ range $i, $r := .AffectedResources }}
+          {{ if lt $i 15 }}
+          <div>{{ $r }}</div>
+          {{ end }}
+          {{ end }}
+          {{ if gt (len .AffectedResources) 15 }}
+          <div style="color:#6c7a89; font-style:italic; padding-top:6px;">+ {{ subi (len .AffectedResources) 15 }} more (see JSON output for full list)</div>
+          {{ end }}
+        </div>
+        {{ end }}
+
+        <div class="break-box">
+          <div class="chain-subhead">Break This Chain</div>
+          {{ if .PriorityFix }}
+          <div class="priority">Priority Fix: {{ .PriorityFix }}</div>
+          {{ end }}
+          {{ if .BreakingNote }}
+          <p style="font-size:12.5px; color:#1e7e4f; margin-bottom:10px;">{{ .BreakingNote }}</p>
+          {{ end }}
+          {{ if .MinimalFixSet }}
+          <div style="font-size:10px; text-transform:uppercase; color:#1e7e4f; letter-spacing:1.2px; margin-bottom:6px; font-weight:800;">Minimal fix set</div>
+          <ul>
+            {{ range .MinimalFixSet }}<li>{{ . }}</li>{{ end }}
+          </ul>
+          {{ end }}
+        </div>
+
+        {{ if .RegulatoryImpact }}
+        <div class="chain-subhead">Regulatory Impact</div>
+        <div class="reg-impact">
+          {{ range .RegulatoryImpact }}
+          <div class="reg-badge"><strong>{{ .Framework }}</strong> {{ .Control }} — {{ .Impact }}</div>
+          {{ end }}
+        </div>
+        {{ end }}
+      </div>
+    </div>
+    {{ end }}
+    {{ else }}
+    <div class="empty">No attack chains detected — individual findings below should still be reviewed.</div>
+    {{ end }}
+  </section>
+
+  <!-- =============================================================
+       PILLAR BREAKDOWN
+       ============================================================= -->
+  {{ if .Score }}
+  <section>
+    <h2 class="section-title">Zero Trust Pillar Breakdown</h2>
+    <div class="section-subtitle">Per-pillar scoring aligned to NIST SP 800-207 tenets</div>
+    <div class="pillar-grid">
+      {{ range $name, $p := .Score.PillarScores }}
+      <div class="pillar-card status-{{ $p.TenetStatus }}">
+        <div class="pc-name">{{ $name }}</div>
+        <div>
+          <span class="pc-score">{{ printf "%.0f" $p.Score }}</span>
+          <span class="pc-score-unit">/100</span>
+        </div>
+        <div class="pc-grade grade-{{ $p.Grade }}">Grade {{ $p.Grade }}</div>
+        <div class="pc-tenet">{{ $p.NISTTenet }}</div>
+        <div class="pc-progress">
+          <div class="fill-{{ $p.TenetStatus }}" style="width: {{ printf "%.0f" $p.Score }}%;"></div>
+        </div>
+        <div class="pc-status status-{{ $p.TenetStatus }}">{{ $p.TenetStatus }}</div>
+        <div class="pc-count">{{ $p.FindingCount }} finding{{ if ne $p.FindingCount 1 }}s{{ end }} &middot; {{ $p.ChainCount }} chain{{ if ne $p.ChainCount 1 }}s{{ end }}</div>
+      </div>
+      {{ end }}
+    </div>
+  </section>
+  {{ end }}
+
+  <!-- =============================================================
+       NIST 800-207 COMPLIANCE MATRIX (Tenet Coverage Heatmap)
+       ============================================================= -->
+  {{ if .Score }}
+  <section>
+    <h2 class="section-title">NIST SP 800-207 Tenet Coverage</h2>
+    <div class="section-subtitle">Zero Trust tenet assessment mapped from pillar findings</div>
+    <table class="matrix">
+      <thead>
+        <tr>
+          <th>Tenet</th>
+          <th>Pillar</th>
+          <th>Status</th>
+          <th>Findings</th>
+          <th>Highest Sev</th>
+          <th>Chains</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{ range $name, $p := .Score.PillarScores }}
+        <tr>
+          <td class="tenet-name">{{ $p.NISTTenet }}</td>
+          <td>{{ $name }}</td>
+          <td><span class="pc-status status-{{ $p.TenetStatus }}">{{ $p.TenetStatus }}</span></td>
+          <td>{{ $p.FindingCount }}</td>
+          <td class="cis-list">{{ if $p.TopFinding }}{{ $p.TopFinding }}{{ else }}—{{ end }}</td>
+          <td>{{ $p.ChainCount }}</td>
+        </tr>
+        {{ end }}
+      </tbody>
+    </table>
+  </section>
+  {{ end }}
+
+  <!-- =============================================================
+       FINDINGS TABLE
+       ============================================================= -->
+  <section>
+    <h2 class="section-title">
+      Findings
+      <span class="count-pill">{{ len .Findings }} total</span>
+    </h2>
+    <div class="section-subtitle">
+      Chain-participating findings listed first. Click any column header to sort.
+    </div>
+
+    {{ if and .Score (or .Score.UniqueCriticalResources .Score.UniqueHighResources .Score.UniqueMediumResources .Score.UniqueLowResources) }}
+    <div class="findings-count-bar">
+      <div class="fcb-item CRITICAL">
+        <div class="fcb-label">Critical</div>
+        <div class="fcb-primary">{{ .Score.UniqueCriticalResources }} <span class="muted" style="font-size:13px;">unique resources</span></div>
+        <div class="fcb-secondary">{{ index .Score.FindingsBySeverity "CRITICAL" }} rule violations</div>
+      </div>
+      <div class="fcb-item HIGH">
+        <div class="fcb-label">High</div>
+        <div class="fcb-primary">{{ .Score.UniqueHighResources }} <span class="muted" style="font-size:13px;">unique resources</span></div>
+        <div class="fcb-secondary">{{ index .Score.FindingsBySeverity "HIGH" }} rule violations</div>
+      </div>
+      <div class="fcb-item MEDIUM">
+        <div class="fcb-label">Medium</div>
+        <div class="fcb-primary">{{ .Score.UniqueMediumResources }} <span class="muted" style="font-size:13px;">unique resources</span></div>
+        <div class="fcb-secondary">{{ index .Score.FindingsBySeverity "MEDIUM" }} rule violations</div>
+      </div>
+      <div class="fcb-item LOW">
+        <div class="fcb-label">Low</div>
+        <div class="fcb-primary">{{ .Score.UniqueLowResources }} <span class="muted" style="font-size:13px;">unique resources</span></div>
+        <div class="fcb-secondary">{{ index .Score.FindingsBySeverity "LOW" }} rule violations</div>
+      </div>
+    </div>
+    {{ end }}
+
+    {{ if .Findings }}
+    <table class="findings-table sortable">
+      <thead>
+        <tr>
+          <th class="sortable" data-sort="rule" style="width: 110px;">ID <span class="sort-arrow"></span></th>
+          <th class="sortable" data-sort="severity" style="width: 90px;">Severity <span class="sort-arrow"> ▲</span></th>
+          <th style="width: 100px;">Chain</th>
+          <th class="sortable" data-sort="resource" style="width: 180px;">Resource <span class="sort-arrow"></span></th>
+          <th>Title</th>
+          <th class="sortable" data-sort="pillar" style="width: 100px;">Pillar <span class="sort-arrow"></span></th>
+          <th style="width: 80px;">CIS</th>
+          <th style="width: 110px;">NIST 800-53</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{ range .Findings }}
+        <tr>
+          <td class="fid">{{ .ID }}</td>
+          <td><span class="sev-badge {{ .Severity }}">{{ .Severity }}</span></td>
+          <td>
+            {{ range .ParticipatesInChains }}
+              <span class="chain-flag">{{ . }}</span>
+            {{ else }}
+              <span class="muted-strong">—</span>
+            {{ end }}
+          </td>
+          <td>
+            <div class="resource-head">{{ .ResourceName }}</div>
+            <div class="resource-type">{{ .ResourceType }}</div>
+            {{ if .Scope }}<div class="resource-scope">scope: {{ .Scope }}</div>{{ end }}
+            {{ if $.UniqueResourcesByRule }}
+              {{ $count := index $.UniqueResourcesByRule .ID }}
+              {{ if and $count (gt $count 1) }}
+              <div class="resource-dedup">fires on {{ $count }} resources</div>
+              {{ end }}
+            {{ end }}
+          </td>
+          <td>
+            <div style="font-weight:700; color:var(--navy);">{{ .Title }}</div>
+            <details class="finding-details">
+              <summary>Show evidence &amp; remediation</summary>
+              <div class="detail-pane">
+                <h4>Description</h4>
+                <p>{{ .Description }}</p>
+                {{ if .Detail }}<h4>Detail</h4><p>{{ .Detail }}</p>{{ end }}
+                {{ if .AttackScenario }}<h4>Attack Scenario</h4><p>{{ .AttackScenario }}</p>{{ end }}
+                {{ if .BlastRadius }}<h4>Blast Radius</h4><p>{{ .BlastRadius }}</p>{{ end }}
+                {{ if .BusinessImpact }}<h4>Business Impact</h4><p>{{ .BusinessImpact }}</p>{{ end }}
+                {{ if .Evidence }}
+                <h4>Evidence</h4>
+                <dl>
+                  {{ range $k, $v := .Evidence }}
+                  <dt>{{ $k }}</dt><dd>{{ $v }}</dd>
+                  {{ end }}
+                </dl>
+                {{ end }}
+                {{ if .RemediationText }}<h4>Remediation</h4><p>{{ .RemediationText }}</p>{{ end }}
+                {{ if .RemediationTerraform }}<h4>Terraform</h4><pre>{{ .RemediationTerraform }}</pre>{{ end }}
+                {{ if .RemediationCLI }}<h4>Azure CLI</h4><pre>{{ .RemediationCLI }}</pre>{{ end }}
+                <h4>Metadata</h4>
+                <dl>
+                  <dt>Resource ID</dt><dd>{{ .ResourceID }}</dd>
+                  <dt>Resource Group</dt><dd>{{ .ResourceGroup }}</dd>
+                  <dt>Location</dt><dd>{{ .Location }}</dd>
+                  <dt>MITRE Technique</dt><dd>{{ .MITRETechnique }}</dd>
+                  <dt>MITRE Tactic</dt><dd>{{ .MITRETactic }}</dd>
+                  <dt>Chain Role</dt><dd>{{ .ChainRole }}</dd>
+                  <dt>Effort (hours)</dt><dd>{{ .EstimatedEffortHours }}</dd>
+                </dl>
+              </div>
+            </details>
+          </td>
+          <td class="fid">{{ .Pillar }}</td>
+          <td class="fid">{{ .CISRule }}{{ if .CISLevel }} ({{ .CISLevel }}){{ end }}</td>
+          <td class="fid">{{ .NIST80053Control }}</td>
+        </tr>
+        {{ end }}
+      </tbody>
+    </table>
+    {{ else }}
+    <div class="empty">No findings to display.</div>
+    {{ end }}
+  </section>
+
+  <!-- =============================================================
+       PERMISSION DRIFT
+       ============================================================= -->
+  {{ if .DriftFindings }}
+  <section>
+    <h2 class="section-title">Permission Drift Analysis</h2>
+    <div class="section-subtitle">Granted vs. actually used actions — over-provisioned identities</div>
+    <table class="drift">
+      <thead>
+        <tr>
+          <th>Identity</th>
+          <th>Type</th>
+          <th>Granted</th>
+          <th>Used</th>
+          <th>Unused</th>
+          <th>Blast Radius</th>
+          <th>Last Activity</th>
+          <th>Recommendation</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{ range .DriftFindings }}
+        <tr>
+          <td>
+            <div style="font-weight:700; color:var(--navy);">{{ .IdentityName }}</div>
+            <div class="fid" style="font-size:10px;">{{ .IdentityARN }}</div>
+          </td>
+          <td>{{ .IdentityType }}</td>
+          <td>{{ len .GrantedActions }}</td>
+          <td>{{ len .UsedActions }}</td>
+          <td>
+            {{ printf "%.0f" .UnusedPercentage }}%
+            <span class="drift-pct-bar"><span class="drift-pct-fill" style="width: {{ printf "%.0f" .UnusedPercentage }}%;"></span></span>
+          </td>
+          <td><span class="sev-badge {{ .BlastRadius }}">{{ .BlastRadius }}</span></td>
+          <td class="fid">{{ .LastActivity }}</td>
+          <td style="font-size:11px;">{{ .Recommendation }}</td>
+        </tr>
+        {{ end }}
+      </tbody>
+    </table>
+  </section>
+  {{ end }}
+
+  <!-- =============================================================
+       REMEDIATION ROADMAP
+       ============================================================= -->
+  <section>
+    <h2 class="section-title">Remediation Roadmap</h2>
+    <div class="section-subtitle">Ordered by chain impact, then severity. Chain-breaking fixes are highlighted green.</div>
+
+    {{ if .Findings }}
+    {{ range .Findings }}
+    <div class="roadmap-item{{ if .ChainPriority }} breaks-chain{{ end }}">
+      <div class="roadmap-head">
+        <span class="roadmap-rule">{{ .ID }}</span>
+        <span class="sev-badge {{ .Severity }}">{{ .Severity }}</span>
+        <span class="roadmap-title">{{ .Title }}</span>
+        <span class="roadmap-effort">{{ .EstimatedEffortHours }}h effort</span>
+        {{ if .ChainPriority }}<span class="breaks-badge">Breaks Chain</span>{{ end }}
+      </div>
+      <div class="roadmap-resource">
+        Affected resource: <code>{{ .ResourceName }}</code>
+        {{ if .ResourceGroup }}<span class="muted"> in resource group <code>{{ .ResourceGroup }}</code></span>{{ end }}
+      </div>
+      {{ if .RemediationText }}
+      <p>{{ .RemediationText }}</p>
+      {{ end }}
+      {{ if .RemediationTerraform }}
+      <pre>{{ substituteResource .RemediationTerraform . }}</pre>
+      {{ end }}
+      {{ if .RemediationCLI }}
+      <pre>{{ substituteResource .RemediationCLI . }}</pre>
+      {{ end }}
+    </div>
+    {{ end }}
+    {{ else }}
+    <div class="empty">No remediations needed — no findings detected.</div>
+    {{ end }}
+  </section>
+
+  <!-- =============================================================
+       TECHNICAL APPENDIX
+       ============================================================= -->
+  <section>
+    <h2 class="section-title">Technical Appendix</h2>
+    <div class="section-subtitle">Raw findings for machine processing</div>
+    <details class="appendix">
+      <summary>Expand raw findings ({{ len .Findings }} entries)</summary>
+      <pre>{{ range $i, $f := .Findings }}{{ if $i }}
+{{ end }}{{ $f.ID }} | {{ $f.Severity }} | {{ $f.ResourceType }} | {{ $f.ResourceName }}
+  title:        {{ $f.Title }}
+  pillar:       {{ $f.Pillar }}
+  cis:          {{ $f.CISRule }} ({{ $f.CISLevel }})
+  nist-800-53:  {{ $f.NIST80053Control }}
+  nist-800-207: {{ $f.NIST800207Tenet }}
+  mitre:        {{ $f.MITRETechnique }} / {{ $f.MITRETactic }}
+  chains:       {{ range $j, $c := $f.ParticipatesInChains }}{{ if $j }}, {{ end }}{{ $c }}{{ end }}
+  resource-id:  {{ $f.ResourceID }}{{ end }}</pre>
+    </details>
+  </section>
+
+  <!-- =============================================================
+       FOOTER
+       ============================================================= -->
+  <footer>
+    Generated by <strong>ARGUS {{ .Version }}</strong> &middot;
+    <a href="https://github.com/vatsayanvivek/argus">github.com/vatsayanvivek/argus</a> &middot;
+    Source-available, not open source
+    <div class="footer-print">Scan timestamp: {{ .ScanTime }} &middot; Report generated: {{ .GeneratedAt }}</div>
+  </footer>
+
+</div>
+
+<script>
+(function() {
+  // Sortable table support — vanilla JS, no deps
+  document.querySelectorAll('table.sortable').forEach(function(table) {
+    table.querySelectorAll('th[data-sort]').forEach(function(th, idx) {
+      th.style.cursor = 'pointer';
+      th.addEventListener('click', function() {
+        var tbody = table.querySelector('tbody');
+        if (!tbody) return;
+        var rows = Array.prototype.slice.call(tbody.querySelectorAll('tr'));
+        var asc = th.getAttribute('data-sort-dir') !== 'asc';
+        rows.sort(function(a, b) {
+          var av = (a.children[idx] && a.children[idx].textContent || '').trim().toLowerCase();
+          var bv = (b.children[idx] && b.children[idx].textContent || '').trim().toLowerCase();
+          // numeric compare for numbers
+          var an = parseFloat(av), bn = parseFloat(bv);
+          if (!isNaN(an) && !isNaN(bn)) return asc ? an - bn : bn - an;
+          // severity ordering
+          var sevOrder = {critical:0,high:1,medium:2,low:3};
+          if (sevOrder[av] !== undefined && sevOrder[bv] !== undefined)
+            return asc ? sevOrder[av] - sevOrder[bv] : sevOrder[bv] - sevOrder[av];
+          return asc ? av.localeCompare(bv) : bv.localeCompare(av);
+        });
+        rows.forEach(function(r) { tbody.appendChild(r); });
+        table.querySelectorAll('th[data-sort]').forEach(function(o) {
+          o.removeAttribute('data-sort-dir');
+          var arrow = o.querySelector('.sort-arrow');
+          if (arrow) arrow.textContent = '';
+        });
+        th.setAttribute('data-sort-dir', asc ? 'asc' : 'desc');
+        var arrow = th.querySelector('.sort-arrow');
+        if (!arrow) {
+          arrow = document.createElement('span');
+          arrow.className = 'sort-arrow';
+          th.appendChild(arrow);
+        }
+        arrow.textContent = asc ? ' ▲' : ' ▼';
+      });
+    });
+  });
+})();
+</script>
+</body>
+</html>

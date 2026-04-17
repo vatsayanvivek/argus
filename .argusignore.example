@@ -1,0 +1,37 @@
+# .argusignore — security findings suppression list
+#
+# Place this file at the root of your repo or working directory and
+# ARGUS will load it automatically. Override with --suppress-file <path>
+# on the scan command.
+#
+# Each entry suppresses findings matching (rule_id, resource_id) and
+# moves them into the report's "Suppressed Findings" section.
+# Suppressed findings are NOT silently dropped — every entry shows the
+# reason, approver, and expiry in the final report so reviewers can
+# challenge accepted-risk decisions.
+
+suppressions:
+  # Suppress a specific finding on a specific resource.
+  - rule_id: "zt_net_010"
+    resource_id: "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/legacy/providers/Microsoft.Storage/storageAccounts/mylogs"
+    reason: "Legacy storage account — migration scheduled Q2 2026"
+    approved_by: "security-team@example.com"
+    expires: "2026-06-30"
+    created_at: "2026-04-11"
+
+  # Suppress a rule across all resources (accepted risk).
+  - rule_id: "zt_vis_010"
+    resource_id: "*"
+    reason: "JIT VM access not yet GA in our region"
+    approved_by: "ciso@example.com"
+    expires: "2026-12-31"
+    created_at: "2026-04-11"
+
+  # Wildcard match by suffix — suppress for every storage account ending
+  # in -tfstate (Terraform state buckets).
+  - rule_id: "cis_3_4"
+    resource_id: "*-tfstate"
+    reason: "Terraform state buckets need broad network access for CI/CD"
+    approved_by: "platform-team@example.com"
+    expires: "2026-12-31"
+    created_at: "2026-04-11"

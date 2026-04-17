@@ -1,0 +1,8 @@
+tenet_id,tenet_number,title,description,azure_relevance,pillar_mapping
+T1,Tenet 1,All data sources and computing services are considered resources,"Treat every Azure resource as a sensitive resource — VMs, storage, KV, SQL","Workload,Data"
+T2,Tenet 2,All communication is secured regardless of network location,"Encrypt all traffic — HTTPS, TLS 1.2+, private endpoints","Network,Identity"
+T3,Tenet 3,Access to enterprise resources is granted on a per-session basis,"Use Azure AD CAP, PIM time-bound activation",Identity
+T4,Tenet 4,Access to resources is determined by dynamic policy,Use risk-based CAP and adaptive auth,Identity
+T5,Tenet 5,The enterprise monitors and measures integrity and security posture of all owned assets,"Use Defender for Cloud, secure score monitoring",Visibility
+T6,Tenet 6,All resource authentication and authorization are dynamic and strictly enforced,"Just-in-time access, MFA, no standing privilege",Identity
+T7,Tenet 7,Enterprise collects information about asset state for posture improvement,"Diagnostic settings, Sentinel, activity log retention",Visibility

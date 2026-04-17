@@ -1,0 +1,765 @@
+{
+  "framework": "hipaa",
+  "display_name": "HIPAA Security Rule (Technical Safeguards)",
+  "version": "45 CFR Part 164 Subpart C",
+  "authority": "U.S. Department of Health and Human Services",
+  "scope_note": "Maps ARGUS rules to HIPAA Security Rule technical safeguards (\u00a7164.312) and the administrative safeguards (\u00a7164.308) that apply to electronic protected health information (ePHI). Physical safeguards (\u00a7164.310) are out of scope for cloud-infrastructure posture checks.",
+  "controls": {
+    "164.308(a)(1)(ii)(A)": {
+      "title": "Risk Analysis",
+      "description": "Conduct an accurate and thorough assessment of the potential risks and vulnerabilities to the confidentiality, integrity, and availability of ePHI."
+    },
+    "164.308(a)(1)(ii)(B)": {
+      "title": "Risk Management",
+      "description": "Implement security measures sufficient to reduce risks and vulnerabilities to a reasonable and appropriate level."
+    },
+    "164.308(a)(3)(ii)(A)": {
+      "title": "Authorization and/or Supervision",
+      "description": "Implement procedures for the authorization and/or supervision of workforce members who work with ePHI."
+    },
+    "164.308(a)(4)(ii)(B)": {
+      "title": "Access Authorization",
+      "description": "Implement policies and procedures for granting access to ePHI."
+    },
+    "164.308(a)(4)(ii)(C)": {
+      "title": "Access Establishment and Modification",
+      "description": "Implement policies and procedures that establish, document, review, and modify a user's right of access to a workstation, transaction, program, or process."
+    },
+    "164.308(a)(5)(ii)(B)": {
+      "title": "Protection from Malicious Software",
+      "description": "Implement procedures for guarding against, detecting, and reporting malicious software."
+    },
+    "164.308(a)(5)(ii)(C)": {
+      "title": "Log-in Monitoring",
+      "description": "Implement procedures for monitoring log-in attempts and reporting discrepancies."
+    },
+    "164.308(a)(5)(ii)(D)": {
+      "title": "Password Management",
+      "description": "Implement procedures for creating, changing, and safeguarding passwords."
+    },
+    "164.308(a)(6)(ii)": {
+      "title": "Response and Reporting",
+      "description": "Identify and respond to suspected or known security incidents; mitigate harmful effects and document incidents and their outcomes."
+    },
+    "164.308(a)(7)(ii)(A)": {
+      "title": "Data Backup Plan",
+      "description": "Establish and implement procedures to create and maintain retrievable exact copies of ePHI."
+    },
+    "164.312(a)(1)": {
+      "title": "Access Control",
+      "description": "Implement technical policies and procedures for electronic information systems that maintain ePHI to allow access only to those persons or software programs that have been granted access rights."
+    },
+    "164.312(a)(2)(i)": {
+      "title": "Unique User Identification",
+      "description": "Assign a unique name and/or number for identifying and tracking user identity."
+    },
+    "164.312(a)(2)(iii)": {
+      "title": "Automatic Logoff",
+      "description": "Implement electronic procedures that terminate an electronic session after a predetermined time of inactivity."
+    },
+    "164.312(a)(2)(iv)": {
+      "title": "Encryption and Decryption",
+      "description": "Implement a mechanism to encrypt and decrypt ePHI."
+    },
+    "164.312(b)": {
+      "title": "Audit Controls",
+      "description": "Implement hardware, software, and/or procedural mechanisms that record and examine activity in information systems that contain or use ePHI."
+    },
+    "164.312(c)(1)": {
+      "title": "Integrity Controls",
+      "description": "Implement policies and procedures to protect ePHI from improper alteration or destruction."
+    },
+    "164.312(d)": {
+      "title": "Person or Entity Authentication",
+      "description": "Implement procedures to verify that a person or entity seeking access to ePHI is the one claimed."
+    },
+    "164.312(e)(1)": {
+      "title": "Transmission Security",
+      "description": "Implement technical security measures to guard against unauthorized access to ePHI that is being transmitted over an electronic communications network."
+    },
+    "164.312(e)(2)(ii)": {
+      "title": "Encryption in Transit",
+      "description": "Implement a mechanism to encrypt ePHI whenever deemed appropriate."
+    }
+  },
+  "mappings": {
+    "cis_1_1": [
+      "164.312(a)(1)",
+      "164.312(d)",
+      "164.308(a)(5)(ii)(D)"
+    ],
+    "cis_1_10": [
+      "164.312(a)(1)"
+    ],
+    "cis_1_11": [
+      "164.308(a)(5)(ii)(D)"
+    ],
+    "cis_1_12": [
+      "164.308(a)(5)(ii)(D)"
+    ],
+    "cis_1_13": [
+      "164.308(a)(4)(ii)(B)"
+    ],
+    "cis_1_14": [
+      "164.308(a)(4)(ii)(C)"
+    ],
+    "cis_1_15": [
+      "164.312(a)(1)",
+      "164.308(a)(3)(ii)(A)"
+    ],
+    "cis_1_2": [
+      "164.312(a)(1)",
+      "164.312(d)"
+    ],
+    "cis_1_24": [
+      "164.312(a)(1)",
+      "164.308(a)(4)(ii)(B)"
+    ],
+    "cis_1_25": [
+      "164.312(a)(1)",
+      "164.308(a)(4)(ii)(B)"
+    ],
+    "cis_1_3": [
+      "164.308(a)(4)(ii)(B)"
+    ],
+    "cis_1_4": [
+      "164.308(a)(4)(ii)(B)",
+      "164.308(a)(3)(ii)(A)"
+    ],
+    "cis_1_5": [
+      "164.308(a)(3)(ii)(A)"
+    ],
+    "cis_1_6": [
+      "164.308(a)(3)(ii)(A)"
+    ],
+    "cis_1_7": [
+      "164.308(a)(5)(ii)(C)"
+    ],
+    "cis_1_8": [
+      "164.308(a)(4)(ii)(C)"
+    ],
+    "cis_1_9": [
+      "164.312(a)(1)"
+    ],
+    "cis_2_1": [
+      "164.308(a)(1)(ii)(A)",
+      "164.308(a)(6)(ii)"
+    ],
+    "cis_2_1_22": [
+      "164.308(a)(5)(ii)(B)",
+      "164.308(a)(1)(ii)(A)"
+    ],
+    "cis_2_1_23": [
+      "164.308(a)(5)(ii)(B)",
+      "164.308(a)(1)(ii)(A)"
+    ],
+    "cis_2_1_24": [
+      "164.308(a)(5)(ii)(B)",
+      "164.308(a)(1)(ii)(A)"
+    ],
+    "cis_2_1_25": [
+      "164.308(a)(5)(ii)(B)",
+      "164.308(a)(1)(ii)(A)"
+    ],
+    "cis_2_1_26": [
+      "164.308(a)(5)(ii)(B)",
+      "164.308(a)(1)(ii)(A)"
+    ],
+    "cis_2_1_27": [
+      "164.308(a)(5)(ii)(B)",
+      "164.308(a)(1)(ii)(A)"
+    ],
+    "cis_2_1_28": [
+      "164.308(a)(5)(ii)(B)",
+      "164.308(a)(1)(ii)(A)"
+    ],
+    "cis_2_2": [
+      "164.308(a)(1)(ii)(A)"
+    ],
+    "cis_2_3": [
+      "164.308(a)(5)(ii)(B)"
+    ],
+    "cis_2_4": [
+      "164.308(a)(5)(ii)(B)"
+    ],
+    "cis_2_5": [
+      "164.308(a)(6)(ii)"
+    ],
+    "cis_2_6": [
+      "164.308(a)(6)(ii)"
+    ],
+    "cis_2_7": [
+      "164.308(a)(6)(ii)"
+    ],
+    "cis_2_8": [
+      "164.308(a)(6)(ii)"
+    ],
+    "cis_3_1": [
+      "164.312(b)"
+    ],
+    "cis_3_16": [
+      "164.312(a)(1)"
+    ],
+    "cis_3_17": [
+      "164.312(a)(2)(iv)"
+    ],
+    "cis_3_2": [
+      "164.312(e)(1)",
+      "164.312(e)(2)(ii)"
+    ],
+    "cis_3_3": [
+      "164.312(e)(1)"
+    ],
+    "cis_3_4": [
+      "164.312(a)(2)(iv)"
+    ],
+    "cis_3_5": [
+      "164.312(a)(1)"
+    ],
+    "cis_3_6": [
+      "164.312(a)(1)",
+      "164.312(e)(1)"
+    ],
+    "cis_3_7": [
+      "164.312(e)(1)"
+    ],
+    "cis_3_8": [
+      "164.312(a)(2)(iv)",
+      "164.312(c)(1)"
+    ],
+    "cis_4_1": [
+      "164.312(a)(2)(iv)"
+    ],
+    "cis_4_2": [
+      "164.312(b)"
+    ],
+    "cis_4_3": [
+      "164.312(b)"
+    ],
+    "cis_4_4": [
+      "164.312(e)(1)",
+      "164.312(e)(2)(ii)"
+    ],
+    "cis_4_5": [
+      "164.312(e)(1)"
+    ],
+    "cis_4_6": [
+      "164.312(a)(1)"
+    ],
+    "cis_4_7": [
+      "164.312(a)(1)"
+    ],
+    "cis_5_1": [
+      "164.312(b)",
+      "164.308(a)(5)(ii)(C)"
+    ],
+    "cis_5_2": [
+      "164.312(b)"
+    ],
+    "cis_5_3": [
+      "164.312(b)"
+    ],
+    "cis_5_4": [
+      "164.312(b)"
+    ],
+    "cis_5_5": [
+      "164.312(b)"
+    ],
+    "cis_5_6": [
+      "164.312(b)"
+    ],
+    "cis_5_7": [
+      "164.312(b)"
+    ],
+    "cis_5_8": [
+      "164.312(b)"
+    ],
+    "cis_5_9": [
+      "164.312(b)"
+    ],
+    "cis_6_1": [
+      "164.312(a)(1)"
+    ],
+    "cis_6_10": [
+      "164.312(b)"
+    ],
+    "cis_6_11": [
+      "164.312(a)(1)"
+    ],
+    "cis_6_2": [
+      "164.312(a)(1)"
+    ],
+    "cis_6_3": [
+      "164.312(a)(1)"
+    ],
+    "cis_6_4": [
+      "164.312(a)(1)"
+    ],
+    "cis_6_5": [
+      "164.312(a)(1)"
+    ],
+    "cis_6_7": [
+      "164.312(b)"
+    ],
+    "cis_6_8": [
+      "164.312(a)(1)"
+    ],
+    "cis_6_9": [
+      "164.312(a)(1)"
+    ],
+    "cis_7_1": [
+      "164.308(a)(1)(ii)(B)"
+    ],
+    "cis_7_10": [
+      "164.312(a)(1)"
+    ],
+    "cis_7_2": [
+      "164.308(a)(1)(ii)(B)"
+    ],
+    "cis_7_3": [
+      "164.312(a)(2)(iv)"
+    ],
+    "cis_7_4": [
+      "164.312(a)(2)(iv)"
+    ],
+    "cis_7_8": [
+      "164.312(a)(1)"
+    ],
+    "cis_7_9": [
+      "164.312(a)(1)"
+    ],
+    "cis_8_1": [
+      "164.312(a)(2)(iv)",
+      "164.312(a)(1)"
+    ],
+    "cis_8_2": [
+      "164.308(a)(7)(ii)(A)",
+      "164.312(c)(1)"
+    ],
+    "cis_8_3": [
+      "164.308(a)(7)(ii)(A)",
+      "164.312(c)(1)"
+    ],
+    "cis_8_4": [
+      "164.312(a)(1)"
+    ],
+    "cis_8_5": [
+      "164.312(b)"
+    ],
+    "cis_8_6": [
+      "164.308(a)(4)(ii)(C)"
+    ],
+    "cis_8_7": [
+      "164.312(a)(1)"
+    ],
+    "cis_9_1": [
+      "164.312(e)(1)",
+      "164.312(e)(2)(ii)"
+    ],
+    "cis_9_11": [
+      "164.312(d)"
+    ],
+    "cis_9_12": [
+      "164.312(d)"
+    ],
+    "cis_9_13": [
+      "164.312(e)(1)"
+    ],
+    "cis_9_14": [
+      "164.312(b)"
+    ],
+    "cis_9_2": [
+      "164.312(e)(1)"
+    ],
+    "cis_9_3": [
+      "164.312(e)(1)"
+    ],
+    "cis_9_4": [
+      "164.312(e)(1)"
+    ],
+    "cis_9_5": [
+      "164.312(a)(1)"
+    ],
+    "zt_data_001": [
+      "164.312(a)(2)(iv)"
+    ],
+    "zt_data_002": [
+      "164.312(e)(1)"
+    ],
+    "zt_data_003": [
+      "164.312(a)(1)"
+    ],
+    "zt_data_004": [
+      "164.312(a)(2)(iv)",
+      "164.312(e)(1)"
+    ],
+    "zt_data_005": [
+      "164.312(a)(2)(iv)",
+      "164.312(e)(1)"
+    ],
+    "zt_data_006": [
+      "164.312(a)(2)(iv)",
+      "164.312(e)(1)"
+    ],
+    "zt_data_007": [
+      "164.312(a)(2)(iv)",
+      "164.312(e)(1)"
+    ],
+    "zt_data_008": [
+      "164.312(a)(2)(iv)",
+      "164.312(e)(1)"
+    ],
+    "zt_data_009": [
+      "164.312(a)(2)(iv)",
+      "164.312(e)(1)"
+    ],
+    "zt_data_010": [
+      "164.312(a)(2)(iv)",
+      "164.312(e)(1)"
+    ],
+    "zt_data_011": [
+      "164.312(a)(2)(iv)",
+      "164.312(e)(1)"
+    ],
+    "zt_data_012": [
+      "164.312(a)(2)(iv)",
+      "164.312(e)(1)"
+    ],
+    "zt_data_013": [
+      "164.312(a)(2)(iv)",
+      "164.312(e)(1)"
+    ],
+    "zt_data_014": [
+      "164.312(a)(2)(iv)",
+      "164.312(e)(1)"
+    ],
+    "zt_data_015": [
+      "164.312(a)(2)(iv)",
+      "164.312(e)(1)"
+    ],
+    "zt_data_016": [
+      "164.312(a)(2)(iv)",
+      "164.312(e)(1)"
+    ],
+    "zt_data_017": [
+      "164.312(a)(2)(iv)",
+      "164.312(e)(1)"
+    ],
+    "zt_data_018": [
+      "164.312(a)(2)(iv)",
+      "164.312(e)(1)"
+    ],
+    "zt_data_019": [
+      "164.312(a)(2)(iv)",
+      "164.312(e)(1)"
+    ],
+    "zt_data_020": [
+      "164.312(a)(2)(iv)",
+      "164.312(e)(1)"
+    ],
+    "zt_id_001": [
+      "164.312(a)(1)",
+      "164.312(d)"
+    ],
+    "zt_id_002": [
+      "164.312(a)(1)"
+    ],
+    "zt_id_003": [
+      "164.308(a)(3)(ii)(A)"
+    ],
+    "zt_id_004": [
+      "164.308(a)(4)(ii)(B)"
+    ],
+    "zt_id_005": [
+      "164.312(a)(2)(iii)"
+    ],
+    "zt_id_006": [
+      "164.312(a)(1)",
+      "164.312(d)"
+    ],
+    "zt_id_007": [
+      "164.308(a)(3)(ii)(A)"
+    ],
+    "zt_id_008": [
+      "164.312(a)(1)",
+      "164.312(d)"
+    ],
+    "zt_id_009": [
+      "164.312(a)(1)",
+      "164.312(d)"
+    ],
+    "zt_id_010": [
+      "164.312(a)(1)",
+      "164.312(d)"
+    ],
+    "zt_id_011": [
+      "164.312(a)(1)"
+    ],
+    "zt_id_012": [
+      "164.312(a)(1)",
+      "164.312(d)"
+    ],
+    "zt_id_013": [
+      "164.312(a)(1)",
+      "164.312(d)"
+    ],
+    "zt_id_014": [
+      "164.312(a)(1)",
+      "164.312(d)"
+    ],
+    "zt_id_015": [
+      "164.312(a)(1)",
+      "164.312(d)"
+    ],
+    "zt_id_016": [
+      "164.312(a)(1)",
+      "164.312(d)"
+    ],
+    "zt_id_017": [
+      "164.312(e)(1)"
+    ],
+    "zt_id_018": [
+      "164.312(a)(1)",
+      "164.312(d)"
+    ],
+    "zt_id_019": [
+      "164.312(a)(1)",
+      "164.312(d)"
+    ],
+    "zt_id_020": [
+      "164.312(a)(1)",
+      "164.312(d)"
+    ],
+    "zt_id_021": [
+      "164.312(a)(1)",
+      "164.312(d)"
+    ],
+    "zt_id_022": [
+      "164.312(a)(1)",
+      "164.312(d)"
+    ],
+    "zt_id_023": [
+      "164.312(a)(1)",
+      "164.312(d)"
+    ],
+    "zt_id_024": [
+      "164.312(a)(1)",
+      "164.312(d)"
+    ],
+    "zt_id_025": [
+      "164.312(a)(1)",
+      "164.312(d)"
+    ],
+    "zt_id_026": [
+      "164.312(a)(1)",
+      "164.312(d)"
+    ],
+    "zt_net_001": [
+      "164.312(a)(1)"
+    ],
+    "zt_net_002": [
+      "164.312(a)(1)"
+    ],
+    "zt_net_003": [
+      "164.312(a)(1)"
+    ],
+    "zt_net_004": [
+      "164.312(a)(1)"
+    ],
+    "zt_net_005": [
+      "164.312(a)(1)"
+    ],
+    "zt_net_006": [
+      "164.312(e)(1)",
+      "164.312(a)(1)"
+    ],
+    "zt_net_007": [
+      "164.312(e)(1)",
+      "164.312(a)(1)"
+    ],
+    "zt_net_008": [
+      "164.312(e)(1)",
+      "164.312(a)(1)"
+    ],
+    "zt_net_009": [
+      "164.312(e)(1)",
+      "164.312(a)(1)"
+    ],
+    "zt_net_010": [
+      "164.312(e)(1)",
+      "164.312(a)(1)"
+    ],
+    "zt_net_011": [
+      "164.312(e)(1)",
+      "164.312(a)(1)"
+    ],
+    "zt_net_012": [
+      "164.312(e)(1)",
+      "164.312(a)(1)"
+    ],
+    "zt_net_013": [
+      "164.312(e)(1)",
+      "164.312(a)(1)"
+    ],
+    "zt_net_014": [
+      "164.312(e)(1)",
+      "164.312(a)(1)"
+    ],
+    "zt_net_015": [
+      "164.312(e)(1)",
+      "164.312(a)(1)"
+    ],
+    "zt_net_016": [
+      "164.312(e)(1)",
+      "164.312(a)(1)"
+    ],
+    "zt_net_017": [
+      "164.312(e)(1)",
+      "164.312(a)(1)"
+    ],
+    "zt_net_018": [
+      "164.312(e)(1)",
+      "164.312(a)(1)"
+    ],
+    "zt_net_019": [
+      "164.312(e)(1)",
+      "164.312(a)(1)"
+    ],
+    "zt_net_020": [
+      "164.312(e)(1)",
+      "164.312(a)(1)"
+    ],
+    "zt_vis_001": [
+      "164.312(b)"
+    ],
+    "zt_vis_002": [
+      "164.312(b)"
+    ],
+    "zt_vis_003": [
+      "164.312(b)"
+    ],
+    "zt_vis_004": [
+      "164.312(b)"
+    ],
+    "zt_vis_005": [
+      "164.312(b)"
+    ],
+    "zt_vis_006": [
+      "164.308(a)(6)(ii)"
+    ],
+    "zt_vis_007": [
+      "164.312(b)"
+    ],
+    "zt_vis_008": [
+      "164.312(b)"
+    ],
+    "zt_vis_009": [
+      "164.312(b)"
+    ],
+    "zt_vis_010": [
+      "164.312(b)"
+    ],
+    "zt_vis_011": [
+      "164.312(b)"
+    ],
+    "zt_vis_012": [
+      "164.312(b)"
+    ],
+    "zt_vis_013": [
+      "164.312(b)"
+    ],
+    "zt_vis_014": [
+      "164.312(b)"
+    ],
+    "zt_vis_015": [
+      "164.312(b)"
+    ],
+    "zt_vis_016": [
+      "164.312(b)"
+    ],
+    "zt_vis_017": [
+      "164.312(b)"
+    ],
+    "zt_vis_018": [
+      "164.312(b)"
+    ],
+    "zt_vis_019": [
+      "164.312(b)"
+    ],
+    "zt_vis_020": [
+      "164.312(b)"
+    ],
+    "zt_wl_001": [
+      "164.308(a)(1)(ii)(B)"
+    ],
+    "zt_wl_002": [
+      "164.308(a)(1)(ii)(B)"
+    ],
+    "zt_wl_003": [
+      "164.308(a)(1)(ii)(B)"
+    ],
+    "zt_wl_004": [
+      "164.308(a)(1)(ii)(B)"
+    ],
+    "zt_wl_005": [
+      "164.308(a)(1)(ii)(B)"
+    ],
+    "zt_wl_006": [
+      "164.308(a)(1)(ii)(B)"
+    ],
+    "zt_wl_007": [
+      "164.308(a)(1)(ii)(B)"
+    ],
+    "zt_wl_008": [
+      "164.308(a)(1)(ii)(B)"
+    ],
+    "zt_wl_009": [
+      "164.308(a)(1)(ii)(B)"
+    ],
+    "zt_wl_010": [
+      "164.308(a)(1)(ii)(B)"
+    ],
+    "zt_wl_011": [
+      "164.308(a)(1)(ii)(B)"
+    ],
+    "zt_wl_012": [
+      "164.308(a)(1)(ii)(B)"
+    ],
+    "zt_wl_013": [
+      "164.308(a)(1)(ii)(B)"
+    ],
+    "zt_wl_014": [
+      "164.308(a)(1)(ii)(B)"
+    ],
+    "zt_wl_015": [
+      "164.308(a)(1)(ii)(B)"
+    ],
+    "zt_wl_016": [
+      "164.308(a)(1)(ii)(B)"
+    ],
+    "zt_wl_017": [
+      "164.308(a)(1)(ii)(B)"
+    ],
+    "zt_wl_018": [
+      "164.308(a)(1)(ii)(B)"
+    ],
+    "zt_wl_019": [
+      "164.308(a)(1)(ii)(B)"
+    ],
+    "zt_wl_020": [
+      "164.308(a)(1)(ii)(B)"
+    ],
+    "zt_wl_021": [
+      "164.308(a)(1)(ii)(B)"
+    ],
+    "zt_wl_022": [
+      "164.308(a)(1)(ii)(B)"
+    ],
+    "zt_wl_023": [
+      "164.308(a)(1)(ii)(B)"
+    ],
+    "zt_wl_024": [
+      "164.308(a)(1)(ii)(B)"
+    ]
+  }
+}

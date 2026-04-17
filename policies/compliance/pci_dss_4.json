@@ -1,0 +1,855 @@
+{
+  "framework": "pci-dss-4",
+  "display_name": "PCI DSS 4.0",
+  "version": "4.0 (March 2022)",
+  "authority": "Payment Card Industry Security Standards Council",
+  "scope_note": "Maps ARGUS rules to PCI DSS 4.0 requirements relevant to the cardholder data environment (CDE) hosted in Microsoft Azure. Requirements 9 (physical) and 12 (policy) are out of scope for automated infrastructure checks.",
+  "controls": {
+    "1.2": {
+      "title": "Network security controls configured and maintained",
+      "description": "Network security controls (NSCs) are configured to restrict all traffic not specifically authorised; default-deny; reviewed at least every six months."
+    },
+    "1.3": {
+      "title": "Network access to and from CDE is restricted",
+      "description": "Inbound/outbound traffic to the CDE is restricted to what is necessary."
+    },
+    "1.4": {
+      "title": "Network connections between trusted and untrusted networks are controlled",
+      "description": "Perimeter NSCs between the CDE and untrusted networks (including the public internet) are implemented."
+    },
+    "2.2": {
+      "title": "System components configured and managed securely",
+      "description": "System components are configured using industry-accepted hardening standards and managed to prevent deviation."
+    },
+    "2.3": {
+      "title": "Wireless environments configured securely",
+      "description": "Wireless access points used for or that could impact the CDE are configured and managed in accordance with vendor recommendations."
+    },
+    "3.5": {
+      "title": "Primary account number is secured wherever stored",
+      "description": "PAN is protected with strong cryptography when stored."
+    },
+    "3.6": {
+      "title": "Cryptographic keys used to protect stored account data are secured",
+      "description": "Key management procedures restrict access, periodic rotation, and protect key-encrypting keys."
+    },
+    "4.2": {
+      "title": "PAN is protected with strong cryptography during transmission",
+      "description": "Strong cryptography and security protocols are used to safeguard PAN during transmission over open, public networks."
+    },
+    "6.3": {
+      "title": "Security vulnerabilities identified and addressed",
+      "description": "Vulnerabilities to system components are identified, ranked, and addressed."
+    },
+    "6.4": {
+      "title": "Public-facing web applications protected against attacks",
+      "description": "Public-facing web applications are protected via a WAF or equivalent, and checked for vulnerabilities continuously."
+    },
+    "7.2": {
+      "title": "Access to system components and data restricted based on need-to-know",
+      "description": "Access is assigned based on job classification and function; all access reviewed at least every six months."
+    },
+    "7.3": {
+      "title": "Access to system components and data managed via an access-control system",
+      "description": "An access-control system is in place that covers all components, default-deny, and assigns privileges based on individual role."
+    },
+    "8.2": {
+      "title": "User identification and related accounts for users and administrators strictly managed throughout account lifecycle",
+      "description": "Unique user IDs; revocation of access upon termination; inactive accounts removed; vendor accounts enabled only when required."
+    },
+    "8.3": {
+      "title": "Strong authentication for users and administrators established and managed",
+      "description": "Strong authentication is used; passwords meet minimum requirements; MFA required for non-console administrative access and all remote access into the CDE."
+    },
+    "8.4": {
+      "title": "Multi-factor authentication for access into the CDE",
+      "description": "MFA is implemented for all non-console access into the CDE and all remote access."
+    },
+    "8.5": {
+      "title": "Multi-factor authentication systems configured to prevent misuse",
+      "description": "MFA systems resistant to replay; cannot be bypassed by any administrator; at least two different factor types."
+    },
+    "8.6": {
+      "title": "Accounts used by systems or applications managed",
+      "description": "Interactive logins with application/system accounts are prevented or justified; passwords changed when personnel change roles."
+    },
+    "10.2": {
+      "title": "Audit logs record details about users and actions affecting the CDE",
+      "description": "Audit logs are enabled and active for all system components; record user identification, type of event, timestamp, success/failure, origination, affected data/resource."
+    },
+    "10.3": {
+      "title": "Audit logs protected from destruction and unauthorized modifications",
+      "description": "Logs are protected to prevent modification/deletion; file-integrity monitoring or change-detection used on log files."
+    },
+    "10.4": {
+      "title": "Audit logs reviewed to identify anomalies or suspicious activity",
+      "description": "Logs are reviewed at least daily; alerting in place for security-relevant events."
+    },
+    "10.5": {
+      "title": "Audit log history retained and available for analysis",
+      "description": "At least 12 months of audit log history retained, of which at least 3 months are immediately available for analysis."
+    },
+    "11.4": {
+      "title": "External and internal penetration testing regularly performed",
+      "description": "External penetration testing at least annually and after any significant change; internal penetration testing at the same cadence."
+    },
+    "11.5": {
+      "title": "Network intrusions and unexpected file changes are detected and responded to",
+      "description": "Intrusion-detection/prevention techniques used at the perimeter of the CDE and at critical points in the CDE."
+    }
+  },
+  "mappings": {
+    "cis_1_1": [
+      "8.3",
+      "8.4",
+      "8.5"
+    ],
+    "cis_1_10": [
+      "8.3"
+    ],
+    "cis_1_11": [
+      "8.3"
+    ],
+    "cis_1_12": [
+      "8.3"
+    ],
+    "cis_1_13": [
+      "8.3"
+    ],
+    "cis_1_14": [
+      "8.2"
+    ],
+    "cis_1_15": [
+      "7.3",
+      "8.6"
+    ],
+    "cis_1_2": [
+      "8.3",
+      "8.4"
+    ],
+    "cis_1_24": [
+      "7.2",
+      "8.2"
+    ],
+    "cis_1_25": [
+      "7.2",
+      "8.2"
+    ],
+    "cis_1_3": [
+      "7.2",
+      "7.3",
+      "8.2"
+    ],
+    "cis_1_4": [
+      "7.2",
+      "7.3"
+    ],
+    "cis_1_5": [
+      "7.2",
+      "8.6"
+    ],
+    "cis_1_6": [
+      "7.2",
+      "8.6"
+    ],
+    "cis_1_7": [
+      "10.2",
+      "10.4"
+    ],
+    "cis_1_8": [
+      "7.3",
+      "8.2"
+    ],
+    "cis_1_9": [
+      "8.3"
+    ],
+    "cis_2_1": [
+      "6.3",
+      "11.5"
+    ],
+    "cis_2_1_22": [
+      "6.3",
+      "11.5"
+    ],
+    "cis_2_1_23": [
+      "6.3",
+      "11.5"
+    ],
+    "cis_2_1_24": [
+      "6.3",
+      "11.5"
+    ],
+    "cis_2_1_25": [
+      "6.3",
+      "11.5"
+    ],
+    "cis_2_1_26": [
+      "6.3",
+      "11.5"
+    ],
+    "cis_2_1_27": [
+      "6.3",
+      "11.5"
+    ],
+    "cis_2_1_28": [
+      "6.3",
+      "11.5"
+    ],
+    "cis_2_2": [
+      "6.3",
+      "11.5"
+    ],
+    "cis_2_3": [
+      "6.3"
+    ],
+    "cis_2_4": [
+      "6.3"
+    ],
+    "cis_2_5": [
+      "6.3"
+    ],
+    "cis_2_6": [
+      "6.3"
+    ],
+    "cis_2_7": [
+      "6.3",
+      "10.4"
+    ],
+    "cis_2_8": [
+      "10.4"
+    ],
+    "cis_3_1": [
+      "10.2",
+      "10.5"
+    ],
+    "cis_3_16": [
+      "1.4"
+    ],
+    "cis_3_17": [
+      "3.5"
+    ],
+    "cis_3_2": [
+      "4.2"
+    ],
+    "cis_3_3": [
+      "4.2"
+    ],
+    "cis_3_4": [
+      "3.5",
+      "3.6"
+    ],
+    "cis_3_5": [
+      "7.3"
+    ],
+    "cis_3_6": [
+      "1.3",
+      "1.4"
+    ],
+    "cis_3_7": [
+      "4.2"
+    ],
+    "cis_3_8": [
+      "3.5",
+      "3.6"
+    ],
+    "cis_4_1": [
+      "3.5"
+    ],
+    "cis_4_2": [
+      "10.2"
+    ],
+    "cis_4_3": [
+      "10.2"
+    ],
+    "cis_4_4": [
+      "4.2"
+    ],
+    "cis_4_5": [
+      "4.2"
+    ],
+    "cis_4_6": [
+      "1.3"
+    ],
+    "cis_4_7": [
+      "3.5"
+    ],
+    "cis_5_1": [
+      "10.2",
+      "10.5"
+    ],
+    "cis_5_2": [
+      "10.2"
+    ],
+    "cis_5_3": [
+      "10.2"
+    ],
+    "cis_5_4": [
+      "10.2"
+    ],
+    "cis_5_5": [
+      "10.2"
+    ],
+    "cis_5_6": [
+      "10.2",
+      "10.4"
+    ],
+    "cis_5_7": [
+      "10.3"
+    ],
+    "cis_5_8": [
+      "10.4"
+    ],
+    "cis_5_9": [
+      "10.4"
+    ],
+    "cis_6_1": [
+      "1.2",
+      "1.3"
+    ],
+    "cis_6_10": [
+      "10.2"
+    ],
+    "cis_6_11": [
+      "1.3"
+    ],
+    "cis_6_2": [
+      "1.2",
+      "1.3"
+    ],
+    "cis_6_3": [
+      "1.3",
+      "1.4"
+    ],
+    "cis_6_4": [
+      "1.3",
+      "1.4"
+    ],
+    "cis_6_5": [
+      "1.4"
+    ],
+    "cis_6_7": [
+      "10.2"
+    ],
+    "cis_6_8": [
+      "1.3"
+    ],
+    "cis_6_9": [
+      "1.3"
+    ],
+    "cis_7_1": [
+      "2.2"
+    ],
+    "cis_7_10": [
+      "6.3"
+    ],
+    "cis_7_2": [
+      "2.2"
+    ],
+    "cis_7_3": [
+      "3.5"
+    ],
+    "cis_7_4": [
+      "3.5"
+    ],
+    "cis_7_8": [
+      "2.2"
+    ],
+    "cis_7_9": [
+      "1.3"
+    ],
+    "cis_8_1": [
+      "3.5",
+      "3.6"
+    ],
+    "cis_8_2": [
+      "3.6"
+    ],
+    "cis_8_3": [
+      "3.6"
+    ],
+    "cis_8_4": [
+      "7.2"
+    ],
+    "cis_8_5": [
+      "10.2"
+    ],
+    "cis_8_6": [
+      "3.6",
+      "8.2"
+    ],
+    "cis_8_7": [
+      "1.3",
+      "1.4"
+    ],
+    "cis_9_1": [
+      "4.2"
+    ],
+    "cis_9_11": [
+      "8.3"
+    ],
+    "cis_9_12": [
+      "8.3"
+    ],
+    "cis_9_13": [
+      "4.2",
+      "6.4"
+    ],
+    "cis_9_14": [
+      "10.2"
+    ],
+    "cis_9_2": [
+      "4.2"
+    ],
+    "cis_9_3": [
+      "4.2"
+    ],
+    "cis_9_4": [
+      "4.2"
+    ],
+    "cis_9_5": [
+      "8.3"
+    ],
+    "zt_data_001": [
+      "3.5"
+    ],
+    "zt_data_002": [
+      "4.2"
+    ],
+    "zt_data_003": [
+      "3.5"
+    ],
+    "zt_data_004": [
+      "3.5",
+      "4.2"
+    ],
+    "zt_data_005": [
+      "3.5",
+      "4.2"
+    ],
+    "zt_data_006": [
+      "3.5",
+      "4.2"
+    ],
+    "zt_data_007": [
+      "3.5",
+      "4.2"
+    ],
+    "zt_data_008": [
+      "3.5",
+      "4.2"
+    ],
+    "zt_data_009": [
+      "3.5",
+      "4.2"
+    ],
+    "zt_data_010": [
+      "3.5",
+      "4.2"
+    ],
+    "zt_data_011": [
+      "3.5",
+      "4.2"
+    ],
+    "zt_data_012": [
+      "3.5",
+      "4.2"
+    ],
+    "zt_data_013": [
+      "3.5",
+      "4.2"
+    ],
+    "zt_data_014": [
+      "3.5",
+      "4.2"
+    ],
+    "zt_data_015": [
+      "3.5",
+      "4.2"
+    ],
+    "zt_data_016": [
+      "3.5",
+      "4.2"
+    ],
+    "zt_data_017": [
+      "3.5",
+      "4.2"
+    ],
+    "zt_data_018": [
+      "3.5",
+      "4.2"
+    ],
+    "zt_data_019": [
+      "3.5",
+      "4.2"
+    ],
+    "zt_data_020": [
+      "3.5",
+      "4.2"
+    ],
+    "zt_id_001": [
+      "8.2",
+      "8.6"
+    ],
+    "zt_id_002": [
+      "8.3",
+      "8.4"
+    ],
+    "zt_id_003": [
+      "8.2",
+      "7.2"
+    ],
+    "zt_id_004": [
+      "8.4",
+      "8.5"
+    ],
+    "zt_id_005": [
+      "8.2"
+    ],
+    "zt_id_006": [
+      "8.2",
+      "8.3"
+    ],
+    "zt_id_007": [
+      "7.2",
+      "8.6"
+    ],
+    "zt_id_008": [
+      "8.2",
+      "8.3"
+    ],
+    "zt_id_009": [
+      "8.2",
+      "8.3"
+    ],
+    "zt_id_010": [
+      "8.2",
+      "8.3"
+    ],
+    "zt_id_011": [
+      "7.3",
+      "8.6"
+    ],
+    "zt_id_012": [
+      "8.2",
+      "8.3"
+    ],
+    "zt_id_013": [
+      "8.2",
+      "8.3"
+    ],
+    "zt_id_014": [
+      "8.2",
+      "8.3"
+    ],
+    "zt_id_015": [
+      "8.2",
+      "8.3"
+    ],
+    "zt_id_016": [
+      "8.2",
+      "8.3"
+    ],
+    "zt_id_017": [
+      "1.4"
+    ],
+    "zt_id_018": [
+      "8.2",
+      "8.3"
+    ],
+    "zt_id_019": [
+      "8.2",
+      "8.3"
+    ],
+    "zt_id_020": [
+      "8.2",
+      "8.3"
+    ],
+    "zt_id_021": [
+      "8.2",
+      "8.3"
+    ],
+    "zt_id_022": [
+      "8.2",
+      "8.3"
+    ],
+    "zt_id_023": [
+      "8.2",
+      "8.3"
+    ],
+    "zt_id_024": [
+      "8.2",
+      "8.3"
+    ],
+    "zt_id_025": [
+      "8.2",
+      "8.3"
+    ],
+    "zt_id_026": [
+      "8.2",
+      "8.3"
+    ],
+    "zt_net_001": [
+      "1.2",
+      "1.3"
+    ],
+    "zt_net_002": [
+      "1.4"
+    ],
+    "zt_net_003": [
+      "1.4"
+    ],
+    "zt_net_004": [
+      "1.3"
+    ],
+    "zt_net_005": [
+      "1.2"
+    ],
+    "zt_net_006": [
+      "1.2",
+      "1.3",
+      "1.4"
+    ],
+    "zt_net_007": [
+      "1.2",
+      "1.3",
+      "1.4"
+    ],
+    "zt_net_008": [
+      "1.2",
+      "1.3",
+      "1.4"
+    ],
+    "zt_net_009": [
+      "1.2",
+      "1.3",
+      "1.4"
+    ],
+    "zt_net_010": [
+      "1.2",
+      "1.3",
+      "1.4"
+    ],
+    "zt_net_011": [
+      "1.2",
+      "1.3",
+      "1.4"
+    ],
+    "zt_net_012": [
+      "1.2",
+      "1.3",
+      "1.4"
+    ],
+    "zt_net_013": [
+      "1.2",
+      "1.3",
+      "1.4"
+    ],
+    "zt_net_014": [
+      "1.2",
+      "1.3",
+      "1.4"
+    ],
+    "zt_net_015": [
+      "1.2",
+      "1.3",
+      "1.4"
+    ],
+    "zt_net_016": [
+      "1.2",
+      "1.3",
+      "1.4"
+    ],
+    "zt_net_017": [
+      "1.2",
+      "1.3",
+      "1.4"
+    ],
+    "zt_net_018": [
+      "1.2",
+      "1.3",
+      "1.4"
+    ],
+    "zt_net_019": [
+      "1.2",
+      "1.3",
+      "1.4"
+    ],
+    "zt_net_020": [
+      "1.2",
+      "1.3",
+      "1.4"
+    ],
+    "zt_vis_001": [
+      "10.2"
+    ],
+    "zt_vis_002": [
+      "10.2"
+    ],
+    "zt_vis_003": [
+      "10.2",
+      "10.4"
+    ],
+    "zt_vis_004": [
+      "10.2",
+      "10.4"
+    ],
+    "zt_vis_005": [
+      "10.4"
+    ],
+    "zt_vis_006": [
+      "10.4",
+      "11.5"
+    ],
+    "zt_vis_007": [
+      "10.2",
+      "10.4"
+    ],
+    "zt_vis_008": [
+      "10.2",
+      "10.4"
+    ],
+    "zt_vis_009": [
+      "10.2",
+      "10.4"
+    ],
+    "zt_vis_010": [
+      "10.2",
+      "10.4"
+    ],
+    "zt_vis_011": [
+      "10.2",
+      "10.4"
+    ],
+    "zt_vis_012": [
+      "10.2",
+      "10.4"
+    ],
+    "zt_vis_013": [
+      "10.2",
+      "10.4"
+    ],
+    "zt_vis_014": [
+      "10.2",
+      "10.4"
+    ],
+    "zt_vis_015": [
+      "10.2",
+      "10.4"
+    ],
+    "zt_vis_016": [
+      "10.2",
+      "10.4"
+    ],
+    "zt_vis_017": [
+      "10.2",
+      "10.4"
+    ],
+    "zt_vis_018": [
+      "10.2",
+      "10.4"
+    ],
+    "zt_vis_019": [
+      "10.2",
+      "10.4"
+    ],
+    "zt_vis_020": [
+      "10.2",
+      "10.4"
+    ],
+    "zt_wl_001": [
+      "6.3"
+    ],
+    "zt_wl_002": [
+      "2.2",
+      "6.3"
+    ],
+    "zt_wl_003": [
+      "2.2",
+      "6.3"
+    ],
+    "zt_wl_004": [
+      "2.2",
+      "6.3"
+    ],
+    "zt_wl_005": [
+      "2.2",
+      "6.3"
+    ],
+    "zt_wl_006": [
+      "2.2",
+      "6.3"
+    ],
+    "zt_wl_007": [
+      "2.2",
+      "6.3"
+    ],
+    "zt_wl_008": [
+      "2.2",
+      "6.3"
+    ],
+    "zt_wl_009": [
+      "2.2",
+      "6.3"
+    ],
+    "zt_wl_010": [
+      "2.2",
+      "6.3"
+    ],
+    "zt_wl_011": [
+      "2.2",
+      "6.3"
+    ],
+    "zt_wl_012": [
+      "2.2",
+      "6.3"
+    ],
+    "zt_wl_013": [
+      "2.2",
+      "6.3"
+    ],
+    "zt_wl_014": [
+      "2.2",
+      "6.3"
+    ],
+    "zt_wl_015": [
+      "2.2",
+      "6.3"
+    ],
+    "zt_wl_016": [
+      "2.2",
+      "6.3"
+    ],
+    "zt_wl_017": [
+      "2.2",
+      "6.3"
+    ],
+    "zt_wl_018": [
+      "2.2",
+      "6.3"
+    ],
+    "zt_wl_019": [
+      "2.2",
+      "6.3"
+    ],
+    "zt_wl_020": [
+      "2.2",
+      "6.3"
+    ],
+    "zt_wl_021": [
+      "2.2",
+      "6.3"
+    ],
+    "zt_wl_022": [
+      "2.2",
+      "6.3"
+    ],
+    "zt_wl_023": [
+      "2.2",
+      "6.3"
+    ],
+    "zt_wl_024": [
+      "2.2",
+      "6.3"
+    ]
+  }
+}

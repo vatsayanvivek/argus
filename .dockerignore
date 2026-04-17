@@ -1,0 +1,51 @@
+# Don't ship local build artifacts or scan output into the Docker
+# build context — it bloats `docker build` even if the Dockerfile
+# never copies them, because the whole context is tar'd up and sent
+# to the daemon.
+
+# Compiled binaries
+/argus
+/argus.exe
+/dist/
+/scripts/dist/
+
+# Scan output / private data (same rules as .gitignore)
+argus-output*/
+argus-test*/
+argus-final*/
+argus-evidence*/
+argus-evidence-*.zip
+argus-scan-*/
+local-scan*/
+private*/
+*-prod-*-output/
+*-customer-*/
+argus_*.html
+argus_*.json
+argus_*.sarif
+.argusignore
+
+# Git + CI metadata
+.git/
+.github/
+.gitignore
+
+# Editor / IDE state
+.claude/
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Test + profiling artifacts
+*.test
+*.out
+coverage.out
+coverage.html
+*.prof
+
+# Node / misc (defensive — not expected but avoids surprise)
+node_modules/
+*.log

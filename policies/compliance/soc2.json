@@ -1,0 +1,786 @@
+{
+  "framework": "soc2",
+  "display_name": "SOC 2 (AICPA Trust Services Criteria)",
+  "version": "TSP 100 (2017, revised 2022)",
+  "authority": "American Institute of Certified Public Accountants",
+  "scope_note": "Maps ARGUS rules to SOC 2 Common Criteria and applicable category criteria (Security, Availability, Confidentiality). Criteria C1 and A1 are included where relevant; PI (Processing Integrity) and P (Privacy) are out of scope for cloud-infrastructure posture checks.",
+  "controls": {
+    "CC6.1": {
+      "title": "Logical and Physical Access Controls",
+      "description": "The entity implements logical access security software, infrastructure, and architectures over protected information assets to protect them from security events."
+    },
+    "CC6.2": {
+      "title": "Access Provisioning",
+      "description": "Prior to issuing system credentials and granting system access, the entity registers and authorizes new internal and external users."
+    },
+    "CC6.3": {
+      "title": "Access Role Authorization",
+      "description": "The entity authorizes, modifies, or removes access to data, software, functions, and other protected information assets based on roles, responsibilities, or the system design and changes, giving consideration to the concepts of least privilege and segregation of duties."
+    },
+    "CC6.6": {
+      "title": "Boundary Protection",
+      "description": "The entity implements logical access security measures to protect against threats from sources outside its system boundaries."
+    },
+    "CC6.7": {
+      "title": "Data-in-Transit Protection",
+      "description": "The entity restricts the transmission, movement, and removal of information to authorized internal and external users and processes, and protects it during transmission."
+    },
+    "CC6.8": {
+      "title": "Malicious Software Prevention",
+      "description": "The entity implements controls to prevent or detect and act upon the introduction of unauthorized or malicious software."
+    },
+    "CC7.1": {
+      "title": "Vulnerability Detection",
+      "description": "The entity uses detection and monitoring procedures to identify changes to configurations that may introduce new vulnerabilities and susceptibilities to security events."
+    },
+    "CC7.2": {
+      "title": "System Monitoring",
+      "description": "The entity monitors system components and the operation of controls for anomalies that are indicative of malicious acts, natural disasters, and errors."
+    },
+    "CC7.3": {
+      "title": "Security Event Evaluation",
+      "description": "The entity evaluates security events to determine whether they could or have resulted in a failure to meet its objectives and, if so, takes actions to prevent or address such failures."
+    },
+    "CC7.4": {
+      "title": "Security Incident Response",
+      "description": "The entity responds to identified security incidents by executing a defined incident-response program."
+    },
+    "CC8.1": {
+      "title": "Change Management",
+      "description": "The entity authorizes, designs, develops or acquires, configures, documents, tests, approves, and implements changes to infrastructure, data, software, and procedures to meet its objectives."
+    },
+    "A1.2": {
+      "title": "Availability - Environmental Protections & Backups",
+      "description": "The entity authorizes, designs, develops or acquires, implements, operates, approves, maintains, and monitors environmental protections, software, data back-up processes, and recovery infrastructure to meet its objectives."
+    },
+    "C1.1": {
+      "title": "Confidential Information Identification and Classification",
+      "description": "The entity identifies and maintains confidential information to meet the entity's objectives related to confidentiality."
+    },
+    "C1.2": {
+      "title": "Confidential Information Disposal",
+      "description": "The entity disposes of confidential information to meet the entity's objectives related to confidentiality."
+    }
+  },
+  "mappings": {
+    "cis_1_1": [
+      "CC6.1",
+      "CC6.2"
+    ],
+    "cis_1_10": [
+      "CC6.1"
+    ],
+    "cis_1_11": [
+      "CC6.1"
+    ],
+    "cis_1_12": [
+      "CC6.1"
+    ],
+    "cis_1_13": [
+      "CC6.1"
+    ],
+    "cis_1_14": [
+      "CC6.2"
+    ],
+    "cis_1_15": [
+      "CC6.1",
+      "CC6.3"
+    ],
+    "cis_1_2": [
+      "CC6.1",
+      "CC6.2"
+    ],
+    "cis_1_24": [
+      "CC6.3"
+    ],
+    "cis_1_25": [
+      "CC6.3"
+    ],
+    "cis_1_3": [
+      "CC6.1",
+      "CC6.3"
+    ],
+    "cis_1_4": [
+      "CC6.3"
+    ],
+    "cis_1_5": [
+      "CC6.3"
+    ],
+    "cis_1_6": [
+      "CC6.3"
+    ],
+    "cis_1_7": [
+      "CC6.2",
+      "CC7.3"
+    ],
+    "cis_1_8": [
+      "CC6.2"
+    ],
+    "cis_1_9": [
+      "CC6.1"
+    ],
+    "cis_2_1": [
+      "CC7.1",
+      "CC7.2"
+    ],
+    "cis_2_1_22": [
+      "CC7.1",
+      "CC7.2"
+    ],
+    "cis_2_1_23": [
+      "CC7.1",
+      "CC7.2"
+    ],
+    "cis_2_1_24": [
+      "CC7.1",
+      "CC7.2"
+    ],
+    "cis_2_1_25": [
+      "CC7.1",
+      "CC7.2"
+    ],
+    "cis_2_1_26": [
+      "CC7.1",
+      "CC7.2"
+    ],
+    "cis_2_1_27": [
+      "CC7.1",
+      "CC7.2"
+    ],
+    "cis_2_1_28": [
+      "CC7.1",
+      "CC7.2"
+    ],
+    "cis_2_2": [
+      "CC7.1",
+      "CC7.2"
+    ],
+    "cis_2_3": [
+      "CC7.1"
+    ],
+    "cis_2_4": [
+      "CC7.2"
+    ],
+    "cis_2_5": [
+      "CC7.2"
+    ],
+    "cis_2_6": [
+      "CC7.2"
+    ],
+    "cis_2_7": [
+      "CC7.3",
+      "CC7.4"
+    ],
+    "cis_2_8": [
+      "CC7.3"
+    ],
+    "cis_3_1": [
+      "CC7.2",
+      "CC6.1"
+    ],
+    "cis_3_16": [
+      "CC6.6"
+    ],
+    "cis_3_17": [
+      "CC6.1"
+    ],
+    "cis_3_2": [
+      "CC6.7"
+    ],
+    "cis_3_3": [
+      "CC6.7"
+    ],
+    "cis_3_4": [
+      "CC6.1",
+      "C1.1"
+    ],
+    "cis_3_5": [
+      "CC6.1"
+    ],
+    "cis_3_6": [
+      "CC6.6"
+    ],
+    "cis_3_7": [
+      "CC6.7"
+    ],
+    "cis_3_8": [
+      "CC6.1",
+      "C1.2"
+    ],
+    "cis_4_1": [
+      "CC6.1",
+      "C1.1"
+    ],
+    "cis_4_2": [
+      "CC7.2"
+    ],
+    "cis_4_3": [
+      "CC7.2"
+    ],
+    "cis_4_4": [
+      "CC6.7"
+    ],
+    "cis_4_5": [
+      "CC6.7"
+    ],
+    "cis_4_6": [
+      "CC6.6"
+    ],
+    "cis_4_7": [
+      "CC6.1"
+    ],
+    "cis_5_1": [
+      "CC7.2"
+    ],
+    "cis_5_2": [
+      "CC7.2"
+    ],
+    "cis_5_3": [
+      "CC7.2"
+    ],
+    "cis_5_4": [
+      "CC7.2"
+    ],
+    "cis_5_5": [
+      "CC7.2"
+    ],
+    "cis_5_6": [
+      "CC7.2"
+    ],
+    "cis_5_7": [
+      "CC7.2"
+    ],
+    "cis_5_8": [
+      "CC7.2"
+    ],
+    "cis_5_9": [
+      "CC7.2"
+    ],
+    "cis_6_1": [
+      "CC6.6"
+    ],
+    "cis_6_10": [
+      "CC7.2"
+    ],
+    "cis_6_11": [
+      "CC6.6"
+    ],
+    "cis_6_2": [
+      "CC6.6"
+    ],
+    "cis_6_3": [
+      "CC6.6"
+    ],
+    "cis_6_4": [
+      "CC6.6"
+    ],
+    "cis_6_5": [
+      "CC6.6"
+    ],
+    "cis_6_7": [
+      "CC7.2"
+    ],
+    "cis_6_8": [
+      "CC6.6"
+    ],
+    "cis_6_9": [
+      "CC6.6"
+    ],
+    "cis_7_1": [
+      "CC7.1"
+    ],
+    "cis_7_10": [
+      "CC6.1"
+    ],
+    "cis_7_2": [
+      "CC7.1"
+    ],
+    "cis_7_3": [
+      "CC6.1",
+      "C1.1"
+    ],
+    "cis_7_4": [
+      "CC6.1"
+    ],
+    "cis_7_8": [
+      "CC6.1"
+    ],
+    "cis_7_9": [
+      "CC6.6"
+    ],
+    "cis_8_1": [
+      "CC6.1",
+      "C1.1"
+    ],
+    "cis_8_2": [
+      "CC6.1",
+      "A1.2"
+    ],
+    "cis_8_3": [
+      "CC6.1",
+      "A1.2"
+    ],
+    "cis_8_4": [
+      "CC6.1"
+    ],
+    "cis_8_5": [
+      "CC7.2"
+    ],
+    "cis_8_6": [
+      "CC8.1"
+    ],
+    "cis_8_7": [
+      "CC6.6"
+    ],
+    "cis_9_1": [
+      "CC6.7"
+    ],
+    "cis_9_11": [
+      "CC6.1"
+    ],
+    "cis_9_12": [
+      "CC6.1"
+    ],
+    "cis_9_13": [
+      "CC6.7"
+    ],
+    "cis_9_14": [
+      "CC7.2"
+    ],
+    "cis_9_2": [
+      "CC6.7"
+    ],
+    "cis_9_3": [
+      "CC6.7"
+    ],
+    "cis_9_4": [
+      "CC6.7"
+    ],
+    "cis_9_5": [
+      "CC6.1"
+    ],
+    "zt_data_001": [
+      "CC6.1",
+      "C1.1"
+    ],
+    "zt_data_002": [
+      "CC6.7"
+    ],
+    "zt_data_003": [
+      "CC6.1"
+    ],
+    "zt_data_004": [
+      "C1.1"
+    ],
+    "zt_data_005": [
+      "CC6.1",
+      "CC6.7",
+      "C1.1"
+    ],
+    "zt_data_006": [
+      "CC6.1",
+      "CC6.7",
+      "C1.1"
+    ],
+    "zt_data_007": [
+      "CC6.1",
+      "CC6.7",
+      "C1.1"
+    ],
+    "zt_data_008": [
+      "CC6.1",
+      "CC6.7",
+      "C1.1"
+    ],
+    "zt_data_009": [
+      "CC6.1",
+      "CC6.7",
+      "C1.1"
+    ],
+    "zt_data_010": [
+      "CC6.1",
+      "CC6.7",
+      "C1.1"
+    ],
+    "zt_data_011": [
+      "CC6.1",
+      "CC6.7",
+      "C1.1"
+    ],
+    "zt_data_012": [
+      "CC6.1",
+      "CC6.7",
+      "C1.1"
+    ],
+    "zt_data_013": [
+      "CC6.1",
+      "CC6.7",
+      "C1.1"
+    ],
+    "zt_data_014": [
+      "CC6.1",
+      "CC6.7",
+      "C1.1"
+    ],
+    "zt_data_015": [
+      "CC6.1",
+      "CC6.7",
+      "C1.1"
+    ],
+    "zt_data_016": [
+      "CC6.1",
+      "CC6.7",
+      "C1.1"
+    ],
+    "zt_data_017": [
+      "CC6.1",
+      "CC6.7",
+      "C1.1"
+    ],
+    "zt_data_018": [
+      "CC6.1",
+      "CC6.7",
+      "C1.1"
+    ],
+    "zt_data_019": [
+      "CC6.1",
+      "CC6.7",
+      "C1.1"
+    ],
+    "zt_data_020": [
+      "CC6.1",
+      "CC6.7",
+      "C1.1"
+    ],
+    "zt_id_001": [
+      "CC6.1"
+    ],
+    "zt_id_002": [
+      "CC6.1"
+    ],
+    "zt_id_003": [
+      "CC6.1",
+      "CC6.3"
+    ],
+    "zt_id_004": [
+      "CC6.1"
+    ],
+    "zt_id_005": [
+      "CC6.1"
+    ],
+    "zt_id_006": [
+      "CC6.1"
+    ],
+    "zt_id_007": [
+      "CC6.3"
+    ],
+    "zt_id_008": [
+      "CC6.1"
+    ],
+    "zt_id_009": [
+      "CC6.1"
+    ],
+    "zt_id_010": [
+      "CC6.2"
+    ],
+    "zt_id_011": [
+      "CC6.1",
+      "CC6.3"
+    ],
+    "zt_id_012": [
+      "CC6.1",
+      "CC6.2",
+      "CC6.3"
+    ],
+    "zt_id_013": [
+      "CC6.1"
+    ],
+    "zt_id_014": [
+      "CC6.1",
+      "CC6.2",
+      "CC6.3"
+    ],
+    "zt_id_015": [
+      "CC6.1"
+    ],
+    "zt_id_016": [
+      "CC6.1",
+      "CC6.2",
+      "CC6.3"
+    ],
+    "zt_id_017": [
+      "CC6.6"
+    ],
+    "zt_id_018": [
+      "CC6.1",
+      "CC6.2",
+      "CC6.3"
+    ],
+    "zt_id_019": [
+      "CC6.1",
+      "CC6.2",
+      "CC6.3"
+    ],
+    "zt_id_020": [
+      "CC6.1"
+    ],
+    "zt_id_021": [
+      "CC6.1",
+      "CC6.2",
+      "CC6.3"
+    ],
+    "zt_id_022": [
+      "CC6.1",
+      "CC6.2",
+      "CC6.3"
+    ],
+    "zt_id_023": [
+      "CC6.1",
+      "CC6.2",
+      "CC6.3"
+    ],
+    "zt_id_024": [
+      "CC6.1",
+      "CC6.2",
+      "CC6.3"
+    ],
+    "zt_id_025": [
+      "CC6.1",
+      "CC6.2",
+      "CC6.3"
+    ],
+    "zt_id_026": [
+      "CC6.1",
+      "CC6.2",
+      "CC6.3"
+    ],
+    "zt_net_001": [
+      "CC6.6"
+    ],
+    "zt_net_002": [
+      "CC6.6"
+    ],
+    "zt_net_003": [
+      "CC6.6"
+    ],
+    "zt_net_004": [
+      "CC6.6"
+    ],
+    "zt_net_005": [
+      "CC6.6"
+    ],
+    "zt_net_006": [
+      "CC6.6"
+    ],
+    "zt_net_007": [
+      "CC6.6"
+    ],
+    "zt_net_008": [
+      "CC6.6"
+    ],
+    "zt_net_009": [
+      "CC6.6"
+    ],
+    "zt_net_010": [
+      "CC6.6"
+    ],
+    "zt_net_011": [
+      "CC6.6"
+    ],
+    "zt_net_012": [
+      "CC6.6"
+    ],
+    "zt_net_013": [
+      "CC6.6"
+    ],
+    "zt_net_014": [
+      "CC6.6"
+    ],
+    "zt_net_015": [
+      "CC6.6"
+    ],
+    "zt_net_016": [
+      "CC6.6"
+    ],
+    "zt_net_017": [
+      "CC6.6"
+    ],
+    "zt_net_018": [
+      "CC6.6"
+    ],
+    "zt_net_019": [
+      "CC6.6"
+    ],
+    "zt_net_020": [
+      "CC6.6"
+    ],
+    "zt_vis_001": [
+      "CC7.2"
+    ],
+    "zt_vis_002": [
+      "CC7.2"
+    ],
+    "zt_vis_003": [
+      "CC7.2",
+      "CC7.3"
+    ],
+    "zt_vis_004": [
+      "CC7.2",
+      "CC7.3"
+    ],
+    "zt_vis_005": [
+      "CC7.2"
+    ],
+    "zt_vis_006": [
+      "CC7.3"
+    ],
+    "zt_vis_007": [
+      "CC7.2"
+    ],
+    "zt_vis_008": [
+      "CC7.2",
+      "CC7.3"
+    ],
+    "zt_vis_009": [
+      "CC7.2",
+      "CC7.3"
+    ],
+    "zt_vis_010": [
+      "CC7.2",
+      "CC7.3"
+    ],
+    "zt_vis_011": [
+      "CC7.2",
+      "CC7.3"
+    ],
+    "zt_vis_012": [
+      "CC7.2",
+      "CC7.3"
+    ],
+    "zt_vis_013": [
+      "CC7.2",
+      "CC7.3"
+    ],
+    "zt_vis_014": [
+      "CC7.2",
+      "CC7.3"
+    ],
+    "zt_vis_015": [
+      "CC7.2",
+      "CC7.3"
+    ],
+    "zt_vis_016": [
+      "CC7.2",
+      "CC7.3"
+    ],
+    "zt_vis_017": [
+      "CC7.2",
+      "CC7.3"
+    ],
+    "zt_vis_018": [
+      "CC7.2",
+      "CC7.3"
+    ],
+    "zt_vis_019": [
+      "CC7.2",
+      "CC7.3"
+    ],
+    "zt_vis_020": [
+      "CC7.2",
+      "CC7.3"
+    ],
+    "zt_wl_001": [
+      "CC7.1"
+    ],
+    "zt_wl_002": [
+      "CC6.1"
+    ],
+    "zt_wl_003": [
+      "CC6.6"
+    ],
+    "zt_wl_004": [
+      "CC6.1",
+      "CC7.1"
+    ],
+    "zt_wl_005": [
+      "CC6.1",
+      "CC7.1"
+    ],
+    "zt_wl_006": [
+      "CC6.1",
+      "CC7.1"
+    ],
+    "zt_wl_007": [
+      "CC6.1",
+      "CC7.1"
+    ],
+    "zt_wl_008": [
+      "CC6.1",
+      "CC7.1"
+    ],
+    "zt_wl_009": [
+      "CC6.1",
+      "CC7.1"
+    ],
+    "zt_wl_010": [
+      "CC6.1",
+      "CC7.1"
+    ],
+    "zt_wl_011": [
+      "CC6.1",
+      "CC7.1"
+    ],
+    "zt_wl_012": [
+      "CC6.1",
+      "CC7.1"
+    ],
+    "zt_wl_013": [
+      "CC6.1",
+      "CC7.1"
+    ],
+    "zt_wl_014": [
+      "CC6.1",
+      "CC7.1"
+    ],
+    "zt_wl_015": [
+      "CC6.1",
+      "CC7.1"
+    ],
+    "zt_wl_016": [
+      "CC6.1",
+      "CC7.1"
+    ],
+    "zt_wl_017": [
+      "CC6.1",
+      "CC7.1"
+    ],
+    "zt_wl_018": [
+      "CC6.1",
+      "CC7.1"
+    ],
+    "zt_wl_019": [
+      "CC6.1",
+      "CC7.1"
+    ],
+    "zt_wl_020": [
+      "CC6.1",
+      "CC7.1"
+    ],
+    "zt_wl_021": [
+      "CC6.1",
+      "CC7.1"
+    ],
+    "zt_wl_022": [
+      "CC6.1",
+      "CC7.1"
+    ],
+    "zt_wl_023": [
+      "CC6.1",
+      "CC7.1"
+    ],
+    "zt_wl_024": [
+      "CC6.1",
+      "CC7.1"
+    ]
+  }
+}
