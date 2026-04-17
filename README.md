@@ -80,12 +80,46 @@ curl -LO https://github.com/vatsayanvivek/argus/releases/latest/download/argus-<
 chmod +x argus-<platform> && ./argus-<platform> install
 ```
 
-### Docker (runs anywhere, zero install on host)
+### Docker (runs anywhere, zero install on host, no SmartScreen/Defender friction)
+
+**Full scan command — outputs land in `./argus-output/` on your host:**
+
 ```bash
-docker run --rm -v ~/.azure:/home/nonroot/.azure:ro \
+# macOS / Linux
+mkdir -p argus-output
+docker run --rm \
+  -v "$HOME/.azure:/home/nonroot/.azure:ro" \
+  -v "$(pwd)/argus-output:/home/nonroot/argus-output" \
   ghcr.io/vatsayanvivek/argus:latest \
-  scan --tenant <tenant-id> --subscription <subscription-id>
+  scan \
+    --tenant <tenant-id> \
+    --subscription <subscription-id> \
+    --output-dir /home/nonroot/argus-output
+
+# Windows PowerShell
+New-Item -ItemType Directory -Force -Path argus-output | Out-Null
+docker run --rm `
+  -v "${HOME}\.azure:/home/nonroot/.azure:ro" `
+  -v "${PWD}\argus-output:/home/nonroot/argus-output" `
+  ghcr.io/vatsayanvivek/argus:latest `
+  scan `
+    --tenant <tenant-id> `
+    --subscription <subscription-id> `
+    --output-dir /home/nonroot/argus-output
 ```
+
+Reports (`*.html`, `*.json`, `*.sarif`) land in the `argus-output/` folder next to your terminal's working directory. Open the HTML in a browser.
+
+**Auth options**:
+- **Easiest**: run `az login` on the host first; the `~/.azure` volume mount hands credentials to the container
+- **Service principal** (CI / non-interactive): pass env vars `-e AZURE_TENANT_ID -e AZURE_CLIENT_ID -e AZURE_CLIENT_SECRET`
+- **Managed Identity** (when the host is an Azure VM): identity flows automatically; no volume mount needed
+
+**Why Docker sidesteps every Windows install friction**:
+- No SmartScreen "Unknown publisher" warning (the image is signed with cosign via GitHub OIDC)
+- No Windows Defender scanning of the exe (container is sandboxed)
+- No PATH setup
+- Identical behaviour on Windows / macOS / Linux / any CI runner
 
 ### Keeping it updated
 ```bash
