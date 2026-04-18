@@ -3,13 +3,13 @@
     "FileVersion": {
       "Major": 1,
       "Minor": 1,
-      "Patch": 0,
+      "Patch": 1,
       "Build": 0
     },
     "ProductVersion": {
       "Major": 1,
       "Minor": 1,
-      "Patch": 0,
+      "Patch": 1,
       "Build": 0
     },
     "FileFlagsMask": "3f",
@@ -22,14 +22,14 @@
     "Comments": "Open-source attack-chain analysis for Microsoft Azure",
     "CompanyName": "vatsayanvivek",
     "FileDescription": "ARGUS \u2014 Attack chain analysis for Microsoft Azure",
-    "FileVersion": "1.1.0.0",
+    "FileVersion": "1.1.1.0",
     "InternalName": "argus",
     "LegalCopyright": "Source-available under PolyForm Strict 1.0.0. See LICENSE.",
     "LegalTrademarks": "",
     "OriginalFilename": "argus.exe",
     "PrivateBuild": "",
     "ProductName": "ARGUS",
-    "ProductVersion": "1.1.0.0",
+    "ProductVersion": "1.1.1.0",
     "SpecialBuild": ""
   },
   "VarFileInfo": {
