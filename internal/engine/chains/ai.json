@@ -1,0 +1,287 @@
+[
+  {
+    "id": "CHAIN-142",
+    "title": "Azure OpenAI endpoint public + prompt logged to App Insights",
+    "severity": "HIGH",
+    "likelihood": "High",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_ai_001", "zt_vis_006"],
+    "narrative": "An Azure OpenAI endpoint is reachable publicly, and its consuming app streams every prompt/response to Application Insights. Anyone with Reader on the App Insights resource can read every prompt — including prompts containing customer PII, internal credentials in RAG context, or confidential business queries.",
+    "steps": [
+      {"number": 1, "actor": "Legit user", "action": "Send a prompt containing sensitive business data.", "technique": "T1213", "enabled_by": "zt_ai_001", "gain": "Prompt is processed normally."},
+      {"number": 2, "actor": "Attacker with App Insights Reader", "action": "Query requests table; read every prompt / completion body.", "technique": "T1213", "enabled_by": "zt_vis_006", "gain": "Mass PII / secret leak from LLM traffic."}
+    ],
+    "blast_radius": {
+      "initial_access": "App Insights reader role.",
+      "max_privilege": "Historical prompt content.",
+      "data_at_risk": ["All LLM prompts", "Any data embedded in prompts"],
+      "services_at_risk": ["Azure OpenAI + consuming apps"]
+    }
+  },
+  {
+    "id": "CHAIN-143",
+    "title": "Cognitive Services key sprawl via multiple account copies",
+    "severity": "MEDIUM",
+    "likelihood": "High",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_ai_002", "zt_id_001"],
+    "narrative": "Cognitive Services subscription keys are distributed via email, Confluence, and shared password managers to every team that wants LLM access. Keys never rotate; there's no way to trace which team leaked which key.",
+    "steps": [
+      {"number": 1, "actor": "Attacker", "action": "Search Slack / SharePoint for 'Ocp-Apim-Subscription-Key'.", "technique": "T1552.001", "enabled_by": "zt_ai_002", "gain": "Valid Cognitive Services key."},
+      {"number": 2, "actor": "Attacker", "action": "Use key for free inference — billed to the owning tenant.", "technique": "T1078", "enabled_by": "zt_id_001", "gain": "Financial abuse + potentially prompt-trail leakage."}
+    ],
+    "blast_radius": {
+      "initial_access": "Key harvest.",
+      "max_privilege": "Inference calls billed to victim.",
+      "data_at_risk": ["Inference quota exhaustion"],
+      "services_at_risk": ["Cognitive Services account"]
+    }
+  },
+  {
+    "id": "CHAIN-144",
+    "title": "ML Workspace compute instance with public IP + SSH",
+    "severity": "HIGH",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_ai_003", "zt_wl_006"],
+    "narrative": "Azure ML Workspace provisions compute instances with public IP and SSH enabled. The compute instance holds a managed identity with Contributor on the workspace — meaning any shell access yields access to every dataset, model registry, and endpoint in the workspace.",
+    "steps": [
+      {"number": 1, "actor": "Attacker", "action": "SSH to ML compute instance; brute-force or use leaked key.", "technique": "T1110", "enabled_by": "zt_ai_003", "gain": "Shell on compute instance."},
+      {"number": 2, "actor": "Attacker", "action": "Use workspace MI to read datastores + export models.", "technique": "T1213", "enabled_by": "zt_wl_006", "gain": "Full ML workspace data exfiltration."}
+    ],
+    "blast_radius": {
+      "initial_access": "Public SSH on ML compute.",
+      "max_privilege": "Workspace Contributor.",
+      "data_at_risk": ["Training datasets", "Model weights", "Endpoints"],
+      "services_at_risk": ["Azure ML Workspace"]
+    }
+  },
+  {
+    "id": "CHAIN-145",
+    "title": "Bot Service app registration over-privileged",
+    "severity": "MEDIUM",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_ai_004", "zt_id_011"],
+    "narrative": "An Azure Bot Service registration has application permissions including User.Read.All and Channel.ReadAll — far more than needed for its normal Q&A chatbot function. A compromise of the bot's service principal yields tenant-wide read of user directory data.",
+    "steps": [
+      {"number": 1, "actor": "Attacker", "action": "Compromise the bot's App Service via any web vuln.", "technique": "T1190", "enabled_by": "zt_ai_004", "gain": "Bot SP access."},
+      {"number": 2, "actor": "Attacker", "action": "Call /users and /channels via Graph; exfil directory.", "technique": "T1087.004", "enabled_by": "zt_id_011", "gain": "Entra directory read."}
+    ],
+    "blast_radius": {
+      "initial_access": "Bot compromise.",
+      "max_privilege": "Directory read + channel read.",
+      "data_at_risk": ["Directory objects, Teams channels"],
+      "services_at_risk": ["Entra ID + Teams"]
+    }
+  },
+  {
+    "id": "CHAIN-146",
+    "title": "Azure AI Search with public access + admin API key leak",
+    "severity": "HIGH",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_ai_005", "zt_id_001"],
+    "narrative": "Azure AI Search service has public network access and admin API keys that never rotate. A leaked admin key grants full read/write on every index — including ability to drop indexes, add poisoned content, or export entire search corpora.",
+    "steps": [
+      {"number": 1, "actor": "Attacker", "action": "Find admin API key in an app's appsettings.json / GitHub.", "technique": "T1552.001", "enabled_by": "zt_ai_005", "gain": "Admin key for search service."},
+      {"number": 2, "actor": "Attacker", "action": "Enumerate indexes; export every document.", "technique": "T1213", "enabled_by": "zt_id_001", "gain": "RAG corpus exfil + poisoning capability."}
+    ],
+    "blast_radius": {
+      "initial_access": "Leaked admin key.",
+      "max_privilege": "Full search service admin.",
+      "data_at_risk": ["Every indexed document (RAG corpus)"],
+      "services_at_risk": ["Search service + consumers"]
+    }
+  },
+  {
+    "id": "CHAIN-147",
+    "title": "OpenAI deployment with no content filter + jailbreak leakage",
+    "severity": "MEDIUM",
+    "likelihood": "High",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_ai_006", "zt_ai_001"],
+    "narrative": "An Azure OpenAI deployment has content filters disabled (or set to lowest) AND is publicly reachable. Attackers extract system prompts, harvest RAG context, and use the endpoint as a free LLM relay — all invoices paid by the victim.",
+    "steps": [
+      {"number": 1, "actor": "Attacker", "action": "Send jailbreak prompt to extract the system prompt.", "technique": "T1557.003", "enabled_by": "zt_ai_006", "gain": "Internal prompt + any RAG data embedded in context."},
+      {"number": 2, "actor": "Attacker", "action": "Relay arbitrary prompts through the endpoint; bill paid by victim.", "technique": "T1496", "enabled_by": "zt_ai_001", "gain": "Free LLM access + potential reputation harm from outputs."}
+    ],
+    "blast_radius": {
+      "initial_access": "Public LLM endpoint.",
+      "max_privilege": "System prompt + RAG leak; compute abuse.",
+      "data_at_risk": ["System prompts", "RAG context corpus"],
+      "services_at_risk": ["OpenAI deployment"]
+    }
+  },
+  {
+    "id": "CHAIN-148",
+    "title": "ML datastore with cleartext credential in datastore config",
+    "severity": "HIGH",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_ai_003", "zt_data_007"],
+    "narrative": "An Azure ML datastore references a SQL database using plaintext username/password in the datastore registration JSON. Anyone with Reader on the workspace can dump this config.",
+    "steps": [
+      {"number": 1, "actor": "Workspace Reader", "action": "GET /datastores; read credential field.", "technique": "T1552.001", "enabled_by": "zt_ai_003", "gain": "DB creds."},
+      {"number": 2, "actor": "Attacker", "action": "Connect to DB directly.", "technique": "T1078", "enabled_by": "zt_data_007", "gain": "DB-wide read."}
+    ],
+    "blast_radius": {
+      "initial_access": "Workspace reader.",
+      "max_privilege": "DB role.",
+      "data_at_risk": ["ML training data source"],
+      "services_at_risk": ["DB + downstream models"]
+    }
+  },
+  {
+    "id": "CHAIN-149",
+    "title": "Computer Vision endpoint without customer-managed key",
+    "severity": "LOW",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_ai_007", "zt_data_006"],
+    "narrative": "Computer Vision processes images containing PII (passports, licenses) but stores them with Microsoft-managed keys. A court order or Microsoft internal compromise could expose historical processed images.",
+    "steps": [
+      {"number": 1, "actor": "Compliance failure", "action": "Data processed without customer-controlled key.", "technique": "T1213", "enabled_by": "zt_ai_007", "gain": "Data residency / control boundary breached."},
+      {"number": 2, "actor": "Legal event", "action": "Subpoena or insider access yields plaintext.", "technique": "T1552.004", "enabled_by": "zt_data_006", "gain": "Regulatory exposure."}
+    ],
+    "blast_radius": {
+      "initial_access": "Legal / infrastructure-level event.",
+      "max_privilege": "Historical image content.",
+      "data_at_risk": ["Processed image data"],
+      "services_at_risk": ["Computer Vision"]
+    }
+  },
+  {
+    "id": "CHAIN-150",
+    "title": "Document Intelligence with public access + PII forms",
+    "severity": "HIGH",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_ai_001", "zt_ai_002"],
+    "narrative": "Document Intelligence ingests forms with SSN, banking details, health records. The service has public network access and a leaked API key works from anywhere. Attackers call the endpoint with victim-organisation images to process their own forms through the victim's quota.",
+    "steps": [
+      {"number": 1, "actor": "Attacker", "action": "Scrape API key from victim's mobile app bundle.", "technique": "T1552.001", "enabled_by": "zt_ai_002", "gain": "Valid Document Intelligence key."},
+      {"number": 2, "actor": "Attacker", "action": "Process attacker-forms through victim's quota; extract model outputs.", "technique": "T1496", "enabled_by": "zt_ai_001", "gain": "Free PII extraction paid by victim."}
+    ],
+    "blast_radius": {
+      "initial_access": "Embedded key.",
+      "max_privilege": "API quota abuse.",
+      "data_at_risk": ["Victim's processing quota + any telemetry"],
+      "services_at_risk": ["Document Intelligence"]
+    }
+  },
+  {
+    "id": "CHAIN-151",
+    "title": "ML pipeline with hardcoded secret in code artifact",
+    "severity": "HIGH",
+    "likelihood": "High",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_ai_003", "zt_wl_014"],
+    "narrative": "An ML training script in the workspace repo hardcodes a storage account key for dataset access. The training image built from the repo embeds this key; anyone with pull access to the container registry has the key.",
+    "steps": [
+      {"number": 1, "actor": "Attacker", "action": "Pull the training image; docker history reveals the key.", "technique": "T1552.001", "enabled_by": "zt_ai_003", "gain": "Key baked into image layer."},
+      {"number": 2, "actor": "Attacker", "action": "Authenticate against the target storage.", "technique": "T1078", "enabled_by": "zt_wl_014", "gain": "Storage access."}
+    ],
+    "blast_radius": {
+      "initial_access": "ACR pull role.",
+      "max_privilege": "Storage account scope.",
+      "data_at_risk": ["Training datasets"],
+      "services_at_risk": ["Storage + training pipeline"]
+    }
+  },
+  {
+    "id": "CHAIN-152",
+    "title": "Azure Bot managed identity with over-broad Graph scope",
+    "severity": "HIGH",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_ai_004", "zt_id_011"],
+    "narrative": "An Azure Bot runs in Teams and the bot's service principal has Chat.Read.All and Files.Read.All delegated — the developer couldn't figure out per-conversation scopes. A compromised bot becomes a tenant-wide Teams eavesdropper.",
+    "steps": [
+      {"number": 1, "actor": "Attacker", "action": "Exploit bot endpoint or SP credential.", "technique": "T1190", "enabled_by": "zt_ai_004", "gain": "Bot SP access."},
+      {"number": 2, "actor": "Attacker", "action": "Call Graph to read any chat in any tenant the bot joined.", "technique": "T1213", "enabled_by": "zt_id_011", "gain": "Tenant-wide chat read."}
+    ],
+    "blast_radius": {
+      "initial_access": "Bot compromise.",
+      "max_privilege": "Tenant chat + file read.",
+      "data_at_risk": ["Every Teams chat the bot has access to"],
+      "services_at_risk": ["Teams + OneDrive"]
+    }
+  },
+  {
+    "id": "CHAIN-153",
+    "title": "Azure AI Content Safety bypassed via token replay",
+    "severity": "MEDIUM",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_ai_006", "zt_vis_002"],
+    "narrative": "Content Safety screens LLM outputs, but the moderation verdict is cached client-side for replay. An attacker captures a 'safe' verdict and replays it for different content, bypassing moderation.",
+    "steps": [
+      {"number": 1, "actor": "Attacker", "action": "Observe moderation verdict traffic; capture 'safe' signatures.", "technique": "T1557.002", "enabled_by": "zt_ai_006", "gain": "Captured 'safe' moderation token."},
+      {"number": 2, "actor": "Attacker", "action": "Submit harmful content, present cached token; app accepts.", "technique": "T1550.004", "enabled_by": "zt_vis_002", "gain": "Moderation bypass."}
+    ],
+    "blast_radius": {
+      "initial_access": "Client-side moderation cache.",
+      "max_privilege": "Moderation bypass.",
+      "data_at_risk": ["Moderation integrity"],
+      "services_at_risk": ["Content Safety consumers"]
+    }
+  },
+  {
+    "id": "CHAIN-154",
+    "title": "Translator service with embedded API key in mobile app",
+    "severity": "MEDIUM",
+    "likelihood": "High",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_ai_002", "zt_ai_007"],
+    "narrative": "A mobile app ships with the Translator subscription key in its APK/IPA. Anyone decompiling the app obtains the key, using victim's free tier for their own translation bill.",
+    "steps": [
+      {"number": 1, "actor": "Attacker", "action": "Decompile the app; extract the subscription key.", "technique": "T1552.001", "enabled_by": "zt_ai_002", "gain": "Valid API key."},
+      {"number": 2, "actor": "Attacker", "action": "Use key to run high-volume translation workloads.", "technique": "T1496", "enabled_by": "zt_ai_007", "gain": "Free translation paid by victim."}
+    ],
+    "blast_radius": {
+      "initial_access": "Mobile app decompilation.",
+      "max_privilege": "API quota abuse.",
+      "data_at_risk": ["Translation quota"],
+      "services_at_risk": ["Translator account"]
+    }
+  },
+  {
+    "id": "CHAIN-155",
+    "title": "ML Workspace without encryption-at-rest CMK",
+    "severity": "MEDIUM",
+    "likelihood": "Low",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_ai_003", "zt_data_006"],
+    "narrative": "ML Workspace stores training artifacts with Microsoft-managed keys. Regulatory frameworks (FedRAMP High, HIPAA-regulated PHI) require CMK. A compliance finding turns into a mandatory remediation + potential audit failure.",
+    "steps": [
+      {"number": 1, "actor": "Compliance audit", "action": "Identify ML workspace without CMK.", "technique": "T1213", "enabled_by": "zt_ai_003", "gain": "Audit gap."},
+      {"number": 2, "actor": "Legal discovery", "action": "Training data accessed via platform-level mechanism.", "technique": "T1552.004", "enabled_by": "zt_data_006", "gain": "Regulatory breach."}
+    ],
+    "blast_radius": {
+      "initial_access": "Compliance event.",
+      "max_privilege": "Regulatory exposure.",
+      "data_at_risk": ["Training datasets"],
+      "services_at_risk": ["ML Workspace"]
+    }
+  },
+  {
+    "id": "CHAIN-156",
+    "title": "Azure AI Search RAG corpus with PII and unauth read",
+    "severity": "CRITICAL",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_ai_005", "zt_data_001"],
+    "narrative": "An LLM RAG application uses Azure AI Search to retrieve internal documents including customer PII. The search service has public endpoint access and query API keys that are distributed broadly. Anyone with a query key can enumerate the corpus and exfiltrate PII.",
+    "steps": [
+      {"number": 1, "actor": "Attacker", "action": "Obtain a query key from a shared secret store.", "technique": "T1552.001", "enabled_by": "zt_ai_005", "gain": "Query access to index."},
+      {"number": 2, "actor": "Attacker", "action": "Enumerate documents via wildcard queries; export PII.", "technique": "T1213", "enabled_by": "zt_data_001", "gain": "Mass PII breach via RAG corpus."}
+    ],
+    "blast_radius": {
+      "initial_access": "Query key distribution.",
+      "max_privilege": "Corpus read.",
+      "data_at_risk": ["Every document in the index"],
+      "services_at_risk": ["RAG pipeline + downstream LLM usage"]
+    }
+  }
+]

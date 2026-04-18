@@ -33,10 +33,12 @@ type Correlator struct {
 	patterns []ChainPattern
 }
 
-// NewCorrelator returns a Correlator with all 51 built-in ARGUS chains
-// registered.
+// NewCorrelator returns a Correlator populated with every built-in chain
+// pattern — both the hand-authored Go builders below (CHAIN-001..051) and
+// every data-driven chain spec embedded from internal/engine/chains/*.json.
 func NewCorrelator() *Correlator {
 	c := &Correlator{}
+	defer c.registerDataDrivenChains()
 	c.patterns = []ChainPattern{
 		{
 			ID:           "CHAIN-001",
@@ -389,6 +391,35 @@ func (c *Correlator) Correlate(findings []models.Finding, snapshot *models.Azure
 		}
 		return out[i].ID < out[j].ID
 	})
+	return out
+}
+
+// ExampleChains runs every registered pattern's Builder against an empty
+// finding set and returns the resulting *AttackChain slice. Useful for
+// documentation generation and for `argus explain` — the narratives,
+// steps, and blast-radius fields are static strings that do not depend
+// on scan findings, so an empty input reveals the full templated form
+// of every chain. Builders that defensively bail on empty input are
+// skipped.
+func (c *Correlator) ExampleChains() []models.AttackChain {
+	empty := map[string][]models.Finding{}
+	snap := &models.AzureSnapshot{}
+	out := make([]models.AttackChain, 0, len(c.patterns))
+	for _, p := range c.patterns {
+		// Builders expect their trigger rule ids to be present; inject
+		// a placeholder finding per trigger so the builder's
+		// extractResourceIDs / collectFindingIDs calls see matching keys.
+		primed := map[string][]models.Finding{}
+		for _, rid := range p.TriggerIDs {
+			primed[rid] = []models.Finding{{ID: rid, ResourceID: "<example>"}}
+		}
+		ch := p.Builder(primed, snap)
+		_ = empty
+		if ch == nil {
+			continue
+		}
+		out = append(out, *ch)
+	}
 	return out
 }
 

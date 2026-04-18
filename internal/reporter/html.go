@@ -2,6 +2,7 @@ package reporter
 
 import (
 	"embed"
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"os"
@@ -117,6 +118,17 @@ func buildFuncMap() template.FuncMap {
 		},
 		"upper": strings.ToUpper,
 		"lower": strings.ToLower,
+		// toJSON serialises a value as JSON for consumption by the inline
+		// SVG attack-graph script at the top of the chains section. The
+		// `template.JS` return type tells html/template the string is
+		// already safe JavaScript and should not be HTML-escaped further.
+		"toJSON": func(v interface{}) (template.JS, error) {
+			raw, err := json.Marshal(v)
+			if err != nil {
+				return "", err
+			}
+			return template.JS(raw), nil
+		},
 		// substituteResource replaces generic placeholders in a remediation
 		// snippet with the actual finding's resource name and resource group.
 		// This makes Terraform/CLI snippets immediately runnable for the

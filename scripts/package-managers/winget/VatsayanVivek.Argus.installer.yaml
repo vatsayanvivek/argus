@@ -1,0 +1,12 @@
+PackageIdentifier: VatsayanVivek.Argus
+PackageVersion: __VERSION__
+InstallerType: portable
+Commands:
+  - argus
+ReleaseDate: __RELEASE_DATE__
+Installers:
+  - Architecture: x64
+    InstallerUrl: https://github.com/vatsayanvivek/argus/releases/download/v__VERSION__/argus-windows-amd64.exe
+    InstallerSha256: __SHA256_WINDOWS_AMD64__
+ManifestType: installer
+ManifestVersion: 1.6.0

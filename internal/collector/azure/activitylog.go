@@ -25,24 +25,39 @@ var securityRelevantPrefixes = []string{
 	"Microsoft.Security/",
 }
 
-// collectActivityLog pulls the last 30 days of Azure Monitor Activity Log
-// events filtered to the subscription scope, then keeps only entries that
-// touch security-relevant operations. The armmonitor ActivityLogs client
-// requires an OData filter with both a timestamp and (optionally) a
-// resourceId or eventChannel — we filter by timestamp + subscription.
+// DefaultActivityLogDays is the default window for Activity Log collection.
+// Azure Monitor retains Activity Log for 90 days out-of-the-box; 30 days is
+// long enough to catch recent drift without overloading large subscriptions.
+// Users can override via Collector.WithActivityLogDays() or the CLI
+// `--activity-log-days` flag.
+const DefaultActivityLogDays = 30
+
+// collectActivityLog pulls Activity Log events for the last `days` days and
+// keeps only entries that touch security-relevant operations. When days is
+// 0 or negative, DefaultActivityLogDays is used. The Azure backend caps at
+// 90 days regardless of what we ask for, so callers get whatever the
+// backend provides within the requested window.
 func collectActivityLog(
 	ctx context.Context,
 	cred azcore.TokenCredential,
 	subscriptionID string,
+	days int,
 ) ([]models.ActivityEvent, error) {
 	events := []models.ActivityEvent{}
+
+	if days <= 0 {
+		days = DefaultActivityLogDays
+	}
+	if days > 90 {
+		days = 90 // Azure backend cap — asking for more is silently truncated
+	}
 
 	client, err := armmonitor.NewActivityLogsClient(subscriptionID, cred, nil)
 	if err != nil {
 		return events, fmt.Errorf("activity log client: %w", err)
 	}
 
-	since := time.Now().UTC().Add(-30 * 24 * time.Hour).Format(time.RFC3339)
+	since := time.Now().UTC().Add(-time.Duration(days) * 24 * time.Hour).Format(time.RFC3339)
 	filter := fmt.Sprintf("eventTimestamp ge '%s'", since)
 
 	pager := client.NewListPager(filter, nil)

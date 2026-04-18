@@ -1,0 +1,192 @@
+[
+  {
+    "id": "CHAIN-182",
+    "title": "Log Analytics retention shorter than incident timeline",
+    "severity": "HIGH",
+    "likelihood": "High",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_vis_010", "zt_vis_011"],
+    "narrative": "Log Analytics workspace retention is 30 days; the industry average incident dwell time is 180+ days. By the time an intrusion is detected, the logs covering the initial compromise are already rotated out.",
+    "steps": [
+      {"number": 1, "actor": "Attacker", "action": "Maintain quiet presence for 90 days before noisy activity.", "technique": "T1070.001", "enabled_by": "zt_vis_010", "gain": "Initial compromise data aged out of workspace."},
+      {"number": 2, "actor": "IR team", "action": "Cannot determine patient zero or initial vector.", "technique": "T1070.001", "enabled_by": "zt_vis_011", "gain": "Incomplete IR scope."}
+    ],
+    "blast_radius": {
+      "initial_access": "Time-driven log loss.",
+      "max_privilege": "Forensic blindness.",
+      "data_at_risk": ["IR scoping integrity"],
+      "services_at_risk": ["Every system relying on this workspace for IR"]
+    }
+  },
+  {
+    "id": "CHAIN-183",
+    "title": "Diagnostic settings missing on Key Vault",
+    "severity": "HIGH",
+    "likelihood": "High",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_vis_001", "zt_vis_011"],
+    "narrative": "A Key Vault has no diagnostic settings streaming to a SIEM. AccessPolicyChange and SecretGet events are invisible to defenders. An attacker with vault read can enumerate every secret and the security team never sees it.",
+    "steps": [
+      {"number": 1, "actor": "Attacker with reader", "action": "List and read every secret; each GetSecret logs only in vault itself.", "technique": "T1552", "enabled_by": "zt_vis_001", "gain": "Bulk secret exfiltration."},
+      {"number": 2, "actor": "Attacker", "action": "Clean up vault-local logs (if retention config allows).", "technique": "T1070", "enabled_by": "zt_vis_011", "gain": "No trace of the exfiltration."}
+    ],
+    "blast_radius": {
+      "initial_access": "Vault reader.",
+      "max_privilege": "Silent full vault read.",
+      "data_at_risk": ["Every secret/key/cert"],
+      "services_at_risk": ["Anything protected by the vault"]
+    }
+  },
+  {
+    "id": "CHAIN-184",
+    "title": "Activity Log alerts missing on IAM writes",
+    "severity": "HIGH",
+    "likelihood": "High",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_vis_021", "zt_vis_001"],
+    "narrative": "No Activity Log alert is configured for Microsoft.Authorization/roleAssignments/write. When an attacker grants themselves Owner on a resource group, SOC has no real-time alert — the change lives in the log but nobody's watching.",
+    "steps": [
+      {"number": 1, "actor": "Attacker", "action": "Grant self Owner via role assignment.", "technique": "T1098", "enabled_by": "zt_vis_021", "gain": "Owner role without trigger."},
+      {"number": 2, "actor": "Attacker", "action": "Operate freely; evidence lives in log but never alerts.", "technique": "T1562", "enabled_by": "zt_vis_001", "gain": "Silent privilege escalation."}
+    ],
+    "blast_radius": {
+      "initial_access": "Contributor / UAA.",
+      "max_privilege": "Owner via self-grant.",
+      "data_at_risk": ["IAM integrity"],
+      "services_at_risk": ["Azure RBAC"]
+    }
+  },
+  {
+    "id": "CHAIN-185",
+    "title": "Defender for Cloud disabled + no Sentinel",
+    "severity": "CRITICAL",
+    "likelihood": "High",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_vis_003", "zt_vis_002"],
+    "narrative": "Defender for Cloud is at Free tier and there's no Sentinel workspace. There is no behavioral detection, no anomaly scoring, no threat-intel correlation. Every other control has to work perfectly because there is no second layer.",
+    "steps": [
+      {"number": 1, "actor": "Attacker", "action": "Operate with no behavioral analytics running.", "technique": "T1562.001", "enabled_by": "zt_vis_003", "gain": "Zero alert surface."},
+      {"number": 2, "actor": "Attacker", "action": "Long dwell time; no mean-time-to-detect signal.", "technique": "T1562.008", "enabled_by": "zt_vis_002", "gain": "Maximum operational stealth."}
+    ],
+    "blast_radius": {
+      "initial_access": "Posture decision.",
+      "max_privilege": "Detection absence.",
+      "data_at_risk": ["MTTD inflated across board"],
+      "services_at_risk": ["Every Azure resource"]
+    }
+  },
+  {
+    "id": "CHAIN-186",
+    "title": "Sentinel analytics rules disabled for cost",
+    "severity": "HIGH",
+    "likelihood": "High",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_vis_002", "zt_vis_006"],
+    "narrative": "Sentinel is deployed but the high-fidelity analytics rules (brute force, impossible travel, new admin) are disabled to reduce cost. The workspace holds the data but produces no alerts — a tool without eyes.",
+    "steps": [
+      {"number": 1, "actor": "Cost-saving decision", "action": "Disable detection rules to drop ingest.", "technique": "T1562.001", "enabled_by": "zt_vis_002", "gain": "No real-time alerting."},
+      {"number": 2, "actor": "Attacker", "action": "Known TTPs pass unnoticed.", "technique": "T1562.001", "enabled_by": "zt_vis_006", "gain": "Operational freedom."}
+    ],
+    "blast_radius": {
+      "initial_access": "Management decision.",
+      "max_privilege": "Detection gap.",
+      "data_at_risk": ["Detection coverage"],
+      "services_at_risk": ["All SIEM-fed systems"]
+    }
+  },
+  {
+    "id": "CHAIN-187",
+    "title": "Azure Monitor action groups inactive",
+    "severity": "MEDIUM",
+    "likelihood": "High",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_vis_004", "zt_vis_006"],
+    "narrative": "Alerts are configured but the action groups point to mailboxes nobody reads or webhooks to decommissioned systems. The alert fires; the response never comes.",
+    "steps": [
+      {"number": 1, "actor": "Alert", "action": "Fire into dead mailbox / broken webhook.", "technique": "T1499", "enabled_by": "zt_vis_004", "gain": "Lost alert."},
+      {"number": 2, "actor": "Attacker", "action": "Continue operating; alert triggered but unseen.", "technique": "T1562", "enabled_by": "zt_vis_006", "gain": "Detection without response."}
+    ],
+    "blast_radius": {
+      "initial_access": "Alert pipeline.",
+      "max_privilege": "Detection-without-response gap.",
+      "data_at_risk": ["Response SLA"],
+      "services_at_risk": ["IR pipeline"]
+    }
+  },
+  {
+    "id": "CHAIN-188",
+    "title": "Application Insights sample rate too aggressive",
+    "severity": "LOW",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_vis_006", "zt_vis_011"],
+    "narrative": "App Insights sampling is set to 5%. Only 1 in 20 requests is logged. During an incident, the SOC cannot tell whether an anomalous request pattern is real or a sampling artefact. Sparse data forces conservative (slow) decisions.",
+    "steps": [
+      {"number": 1, "actor": "Attack traffic", "action": "Most attacker requests never land in App Insights.", "technique": "T1070", "enabled_by": "zt_vis_006", "gain": "Reduced detection signal."},
+      {"number": 2, "actor": "SOC", "action": "Cannot distinguish real attack from baseline noise.", "technique": "T1070", "enabled_by": "zt_vis_011", "gain": "Investigation slowdown."}
+    ],
+    "blast_radius": {
+      "initial_access": "Sampling decision.",
+      "max_privilege": "Detection signal dilution.",
+      "data_at_risk": ["App telemetry integrity"],
+      "services_at_risk": ["App Insights consumers"]
+    }
+  },
+  {
+    "id": "CHAIN-189",
+    "title": "Subscription without Activity Log export",
+    "severity": "MEDIUM",
+    "likelihood": "High",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_vis_008", "zt_vis_001"],
+    "narrative": "The subscription's Activity Log is kept at default 90-day retention (in Azure) with no export to Log Analytics or Storage. At day 91, every control-plane action from day 1 is gone — deleted resource-group audit trail, role-assignment history, everything.",
+    "steps": [
+      {"number": 1, "actor": "Time", "action": "Day 91: oldest Activity Log entries purge.", "technique": "T1070.004", "enabled_by": "zt_vis_008", "gain": "Control-plane history loss."},
+      {"number": 2, "actor": "IR / audit", "action": "Cannot reconstruct long-ago privileged operations.", "technique": "T1562.006", "enabled_by": "zt_vis_001", "gain": "Audit gap."}
+    ],
+    "blast_radius": {
+      "initial_access": "Time-based log loss.",
+      "max_privilege": "Forensic gap.",
+      "data_at_risk": ["Control-plane history"],
+      "services_at_risk": ["Subscription-wide audit integrity"]
+    }
+  },
+  {
+    "id": "CHAIN-190",
+    "title": "Critical resources without resource locks",
+    "severity": "HIGH",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_vis_007", "zt_id_003"],
+    "narrative": "Production storage accounts, key vaults, and databases have no delete locks. A compromised Contributor or an accidental 'rm -rf' via Terraform can destroy them in seconds — with no two-step confirmation.",
+    "steps": [
+      {"number": 1, "actor": "Attacker / accident", "action": "Terraform destroy or Portal delete on unlocked resource.", "technique": "T1485", "enabled_by": "zt_vis_007", "gain": "Unrecoverable deletion."},
+      {"number": 2, "actor": "Organisation", "action": "Extended outage; potential data loss depending on backup state.", "technique": "T1485", "enabled_by": "zt_id_003", "gain": "Operational damage."}
+    ],
+    "blast_radius": {
+      "initial_access": "Contributor or automation bug.",
+      "max_privilege": "Destructive resource deletion.",
+      "data_at_risk": ["Any resource without a lock"],
+      "services_at_risk": ["Every unlocked critical resource"]
+    }
+  },
+  {
+    "id": "CHAIN-191",
+    "title": "Secure Score low + no remediation tracking",
+    "severity": "MEDIUM",
+    "likelihood": "High",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_vis_005", "zt_vis_002"],
+    "narrative": "Defender Secure Score is below 40% for months with no remediation trend. The control plane knows what's broken but nobody's assigned to fix it. Every vulnerability the score reflects remains live.",
+    "steps": [
+      {"number": 1, "actor": "Time", "action": "Recommendations accumulate; score stays flat.", "technique": "T1562", "enabled_by": "zt_vis_005", "gain": "Stagnant risk posture."},
+      {"number": 2, "actor": "Attacker", "action": "Exploit any of the documented gaps.", "technique": "T1190", "enabled_by": "zt_vis_002", "gain": "Easy target selection."}
+    ],
+    "blast_radius": {
+      "initial_access": "Any exploitable recommendation.",
+      "max_privilege": "Variable by recommendation.",
+      "data_at_risk": ["Whatever the recommendations flag"],
+      "services_at_risk": ["Subscription-wide"]
+    }
+  }
+]

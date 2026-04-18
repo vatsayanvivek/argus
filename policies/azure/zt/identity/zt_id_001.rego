@@ -31,9 +31,9 @@ is_never_expiring(end_date) if {
 }
 
 has_never_expiring_credential(sp) if {
-    creds := object.get(sp, "passwordCredentials", [])
+    creds := object.get(sp, "password_credentials", [])
     cred := creds[_]
-    end_date := object.get(cred, "endDateTime", null)
+    end_date := object.get(cred, "end_datetime", null)
     is_never_expiring(end_date)
 }
 

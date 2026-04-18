@@ -1,0 +1,287 @@
+[
+  {
+    "id": "CHAIN-102",
+    "title": "VPN gateway with weak IKE crypto + pre-shared key leak",
+    "severity": "HIGH",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_net_021", "zt_net_003"],
+    "narrative": "A Site-to-Site VPN gateway accepts IKEv1 with DES/3DES + weak PSK. An attacker on-path captures IKE packets and offline-cracks the PSK, then establishes their own tunnel to pivot into the VNet from anywhere on the internet.",
+    "steps": [
+      {"number": 1, "actor": "Attacker", "action": "Capture IKE session; offline-crack the PSK using GPU cluster.", "technique": "T1040", "enabled_by": "zt_net_021", "gain": "Valid PSK."},
+      {"number": 2, "actor": "Attacker", "action": "Establish attacker-side tunnel; appear as internal node in Azure VNet.", "technique": "T1133", "enabled_by": "zt_net_003", "gain": "Lateral movement into prod VNet."}
+    ],
+    "blast_radius": {
+      "initial_access": "On-path IKE capture.",
+      "max_privilege": "Any private-IP-reachable resource.",
+      "data_at_risk": ["VM filesystems", "Internal service traffic"],
+      "services_at_risk": ["Azure VNet"]
+    }
+  },
+  {
+    "id": "CHAIN-103",
+    "title": "Private DNS zone hijack via delegation",
+    "severity": "HIGH",
+    "likelihood": "Low",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_net_022", "zt_id_003"],
+    "narrative": "Private DNS zones are linked to VNets without strict IAM. An attacker with Private DNS Zone Contributor creates a CNAME for an internal service name to attacker-controlled storage, harvesting internal traffic intended for legitimate endpoints.",
+    "steps": [
+      {"number": 1, "actor": "Attacker with DNS write", "action": "Add CNAME internal-api -> attacker.blob.core.windows.net.", "technique": "T1584.002", "enabled_by": "zt_net_022", "gain": "DNS-based MITM in private plane."},
+      {"number": 2, "actor": "Victim app", "action": "Resolves internal-api to attacker storage; sends auth tokens in request headers.", "technique": "T1557", "enabled_by": "zt_id_003", "gain": "Captured bearer tokens."}
+    ],
+    "blast_radius": {
+      "initial_access": "Private DNS write.",
+      "max_privilege": "Token capture + future replay.",
+      "data_at_risk": ["Any internal service bearer tokens"],
+      "services_at_risk": ["Every VNet-linked DNS consumer"]
+    }
+  },
+  {
+    "id": "CHAIN-104",
+    "title": "ExpressRoute without MACsec + carrier compromise",
+    "severity": "HIGH",
+    "likelihood": "Low",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_net_023", "zt_net_002"],
+    "narrative": "ExpressRoute circuit does not enable MAC Layer Security. Traffic between corporate edge and Azure travels clear through the carrier's network. A carrier-level adversary (or compromised physical cross-connect) can sniff or inject.",
+    "steps": [
+      {"number": 1, "actor": "Carrier-level adversary", "action": "Tap the ExpressRoute path at the MMR.", "technique": "T1040", "enabled_by": "zt_net_023", "gain": "Plaintext traffic stream."},
+      {"number": 2, "actor": "Adversary", "action": "Harvest session tokens; inject forged responses.", "technique": "T1557", "enabled_by": "zt_net_002", "gain": "Full traffic compromise."}
+    ],
+    "blast_radius": {
+      "initial_access": "Carrier-level access.",
+      "max_privilege": "All ExpressRoute traffic.",
+      "data_at_risk": ["All VNet-to-on-prem traffic"],
+      "services_at_risk": ["Everything traversing this circuit"]
+    }
+  },
+  {
+    "id": "CHAIN-105",
+    "title": "NAT gateway with outbound any + data exfil channel",
+    "severity": "MEDIUM",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_net_024", "zt_vis_001"],
+    "narrative": "NAT gateway allows outbound to any destination and the VNet has no egress monitoring. A compromised VM can exfiltrate to attacker DNS or HTTP servers without triggering any network alert.",
+    "steps": [
+      {"number": 1, "actor": "Compromised VM", "action": "DNS-tunnel data to attacker.com via NAT gateway.", "technique": "T1048.003", "enabled_by": "zt_net_024", "gain": "Data leaving via unmonitored egress."},
+      {"number": 2, "actor": "Attacker", "action": "Reassemble tunnelled data at C2 server.", "technique": "T1041", "enabled_by": "zt_vis_001", "gain": "Slow-drip exfiltration, undetected."}
+    ],
+    "blast_radius": {
+      "initial_access": "Any VM compromise.",
+      "max_privilege": "Covert exfil channel.",
+      "data_at_risk": ["Anything reachable by VM"],
+      "services_at_risk": ["Any private resource the VM can read"]
+    }
+  },
+  {
+    "id": "CHAIN-106",
+    "title": "Cross-tenant VNet peering without RBAC scoping",
+    "severity": "HIGH",
+    "likelihood": "Low",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_net_003", "zt_id_023"],
+    "narrative": "A VNet peering is established with a partner tenant and both ends allow 'Allow forwarded traffic' without careful firewall rules. Compromise of a partner resource yields Layer-3 reachability to your private subnets.",
+    "steps": [
+      {"number": 1, "actor": "Partner-tenant attacker", "action": "Compromise a partner VNet VM.", "technique": "T1078", "enabled_by": "zt_id_023", "gain": "Partner VNet foothold."},
+      {"number": 2, "actor": "Attacker", "action": "Route through peering into home VNet.", "technique": "T1021", "enabled_by": "zt_net_003", "gain": "Lateral reachability to home subnets."}
+    ],
+    "blast_radius": {
+      "initial_access": "Partner VNet compromise.",
+      "max_privilege": "Home VNet network reach.",
+      "data_at_risk": ["Anything reachable on peered subnets"],
+      "services_at_risk": ["Peered subnets"]
+    }
+  },
+  {
+    "id": "CHAIN-107",
+    "title": "Service endpoint bypass via compromised subnet",
+    "severity": "MEDIUM",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_net_004", "zt_data_001"],
+    "narrative": "A storage account is protected by service endpoint restrictions listing trusted subnets. Any compromised VM in those subnets can read the storage account with no further auth. Service endpoints authenticate subnets, not users.",
+    "steps": [
+      {"number": 1, "actor": "Attacker on trusted-subnet VM", "action": "Call storage REST using the VM's managed identity.", "technique": "T1078", "enabled_by": "zt_net_004", "gain": "Storage access from 'trusted' source."},
+      {"number": 2, "actor": "Attacker", "action": "Read blobs; firewall treats request as legitimate.", "technique": "T1530", "enabled_by": "zt_data_001", "gain": "Data exfil via subnet trust."}
+    ],
+    "blast_radius": {
+      "initial_access": "Any VM in trusted subnet.",
+      "max_privilege": "Storage scope of trust rule.",
+      "data_at_risk": ["Trusted storage account"],
+      "services_at_risk": ["Any resource protected by service endpoint"]
+    }
+  },
+  {
+    "id": "CHAIN-108",
+    "title": "Application Gateway with SSL passthrough + backend TLS off",
+    "severity": "MEDIUM",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_net_006", "zt_net_002"],
+    "narrative": "App Gateway terminates TLS and sends plain HTTP to backend pools over the VNet. Any VNet-scoped adversary can sniff the internal traffic or inject responses.",
+    "steps": [
+      {"number": 1, "actor": "Adversary in VNet", "action": "Sniff backend HTTP traffic.", "technique": "T1040", "enabled_by": "zt_net_006", "gain": "Session tokens, auth cookies."},
+      {"number": 2, "actor": "Adversary", "action": "Replay captured session cookies.", "technique": "T1550.004", "enabled_by": "zt_net_002", "gain": "Impersonation of legitimate users."}
+    ],
+    "blast_radius": {
+      "initial_access": "VNet-scoped access.",
+      "max_privilege": "Session hijack.",
+      "data_at_risk": ["Session + API traffic"],
+      "services_at_risk": ["Apps behind the gateway"]
+    }
+  },
+  {
+    "id": "CHAIN-109",
+    "title": "Front Door without WAF + origin direct-exposure",
+    "severity": "HIGH",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_net_007", "zt_net_001"],
+    "narrative": "Front Door WAF is disabled and the origin (App Service or VM) also accepts direct internet traffic. Attackers discover the origin IP and attack it directly, bypassing any Front Door protection entirely.",
+    "steps": [
+      {"number": 1, "actor": "Attacker", "action": "DNS history lookup or certificate-transparency search for the origin IP.", "technique": "T1596.003", "enabled_by": "zt_net_001", "gain": "Origin IP revealed."},
+      {"number": 2, "actor": "Attacker", "action": "Attack origin directly; WAF never sees the traffic.", "technique": "T1190", "enabled_by": "zt_net_007", "gain": "Unprotected origin exploitation."}
+    ],
+    "blast_radius": {
+      "initial_access": "Public origin address.",
+      "max_privilege": "Full origin compromise.",
+      "data_at_risk": ["Origin app data"],
+      "services_at_risk": ["The 'protected' app"]
+    }
+  },
+  {
+    "id": "CHAIN-110",
+    "title": "CDN caching a secret-bearing response",
+    "severity": "MEDIUM",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_net_008", "zt_data_001"],
+    "narrative": "A CDN rule caches any GET response including responses that inadvertently carry Authorization headers in Location redirects, cookies in Set-Cookie, or secrets in HTML. Cache keys match only URL; many users share the 'same' cache entry.",
+    "steps": [
+      {"number": 1, "actor": "Developer misconfig", "action": "Response has Set-Cookie with auth token + no Vary: Cookie header.", "technique": "T1213", "enabled_by": "zt_net_008", "gain": "Token baked into CDN cache entry."},
+      {"number": 2, "actor": "Next user", "action": "Requests same URL; CDN serves cached response with another user's token.", "technique": "T1550.004", "enabled_by": "zt_data_001", "gain": "Session impersonation via shared cache."}
+    ],
+    "blast_radius": {
+      "initial_access": "CDN cache pollution.",
+      "max_privilege": "Cross-user session hijack.",
+      "data_at_risk": ["Per-user secrets in cached responses"],
+      "services_at_risk": ["Any app fronted by misconfigured CDN"]
+    }
+  },
+  {
+    "id": "CHAIN-111",
+    "title": "Private Link DNS misconfig forces fallback to public",
+    "severity": "MEDIUM",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_net_022", "zt_data_002"],
+    "narrative": "A storage account has Private Link but the private DNS zone is not linked to the consuming VNet. DNS falls back to the public endpoint; traffic now traverses the public internet instead of the private channel. The admin thinks it's private; it isn't.",
+    "steps": [
+      {"number": 1, "actor": "Misconfig", "action": "VNet resolves *.blob.core.windows.net to the public IP.", "technique": "T1584.002", "enabled_by": "zt_net_022", "gain": "Traffic goes over public Internet."},
+      {"number": 2, "actor": "External adversary", "action": "Sniff the assumed-private traffic.", "technique": "T1040", "enabled_by": "zt_data_002", "gain": "Plaintext-on-TLS exfil + MITM potential."}
+    ],
+    "blast_radius": {
+      "initial_access": "Routing-level path exposure.",
+      "max_privilege": "Internet adversary observability.",
+      "data_at_risk": ["Supposedly private storage traffic"],
+      "services_at_risk": ["Any Private Link consumer with broken DNS"]
+    }
+  },
+  {
+    "id": "CHAIN-112",
+    "title": "NSG priority collision allows unintended traffic",
+    "severity": "MEDIUM",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_net_010", "zt_net_001"],
+    "narrative": "Two NSG rules target the same port but with different access decisions; the lower-priority Allow comes first due to rule-number ordering. The admin believes a Deny is in effect but the Allow fires. The visible effect is an 'open' port that shouldn't be.",
+    "steps": [
+      {"number": 1, "actor": "Attacker", "action": "Port-scan discovers 'blocked' port is actually open.", "technique": "T1595.001", "enabled_by": "zt_net_010", "gain": "Unexpected reachability."},
+      {"number": 2, "actor": "Attacker", "action": "Exploit the reachable service.", "technique": "T1190", "enabled_by": "zt_net_001", "gain": "Lateral foothold."}
+    ],
+    "blast_radius": {
+      "initial_access": "Network-visible port scan.",
+      "max_privilege": "Whatever the service exposes.",
+      "data_at_risk": ["Service data"],
+      "services_at_risk": ["Service behind the 'blocked' port"]
+    }
+  },
+  {
+    "id": "CHAIN-113",
+    "title": "Subnet without NSG and with a publicly-reachable VM",
+    "severity": "CRITICAL",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_net_011", "zt_net_001"],
+    "narrative": "A subnet has no NSG attached and contains a VM with a public IP. Azure network security boils down to 'the VM's OS firewall', which is often Windows Firewall exclusions or permissive Linux iptables. Any service the VM runs is internet-reachable.",
+    "steps": [
+      {"number": 1, "actor": "Attacker", "action": "Port-scan the VM's public IP; find an exposed service.", "technique": "T1595.001", "enabled_by": "zt_net_011", "gain": "Service discovery."},
+      {"number": 2, "actor": "Attacker", "action": "Exploit the service or brute-force its auth.", "technique": "T1190", "enabled_by": "zt_net_001", "gain": "VM compromise."}
+    ],
+    "blast_radius": {
+      "initial_access": "Internet scan.",
+      "max_privilege": "Full VM RCE.",
+      "data_at_risk": ["VM filesystem, MI token"],
+      "services_at_risk": ["The VM + anything its MI can reach"]
+    }
+  },
+  {
+    "id": "CHAIN-114",
+    "title": "DDoS protection disabled on internet-facing resources",
+    "severity": "MEDIUM",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_net_012", "zt_net_007"],
+    "narrative": "VNets hosting internet-facing apps do not have DDoS Protection Standard. A volumetric attack takes the app offline; the business lives with rate-limit downtime plus reputational damage.",
+    "steps": [
+      {"number": 1, "actor": "Attacker", "action": "Launch volumetric UDP flood on public IP.", "technique": "T1498.001", "enabled_by": "zt_net_012", "gain": "Downtime within seconds."},
+      {"number": 2, "actor": "Attacker", "action": "Sustain attack; basic DDoS mitigation (per-IP throttle) cannot absorb.", "technique": "T1498", "enabled_by": "zt_net_007", "gain": "Extended outage."}
+    ],
+    "blast_radius": {
+      "initial_access": "Internet DDoS sources.",
+      "max_privilege": "Availability denial.",
+      "data_at_risk": ["Service availability"],
+      "services_at_risk": ["Any public-facing Azure resource"]
+    }
+  },
+  {
+    "id": "CHAIN-115",
+    "title": "VNet flow log missing during incident",
+    "severity": "MEDIUM",
+    "likelihood": "High",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_net_013", "zt_vis_001"],
+    "narrative": "VNet NSG flow logs are not enabled. During an incident, SOC cannot see which internal IPs talked to compromised VMs. Reconstructing the lateral movement path requires host-based forensics only.",
+    "steps": [
+      {"number": 1, "actor": "Attacker", "action": "Lateral-move across VNet without leaving flow record.", "technique": "T1562.006", "enabled_by": "zt_net_013", "gain": "Silent lateral movement."},
+      {"number": 2, "actor": "SOC", "action": "Cannot enumerate affected hosts during IR.", "technique": "T1562.006", "enabled_by": "zt_vis_001", "gain": "Incomplete scoping; longer containment."}
+    ],
+    "blast_radius": {
+      "initial_access": "Any VNet foothold.",
+      "max_privilege": "Forensic blindness.",
+      "data_at_risk": ["IR integrity"],
+      "services_at_risk": ["All of SOC-assisted incident response"]
+    }
+  },
+  {
+    "id": "CHAIN-116",
+    "title": "Bastion hairpin into peer subnet",
+    "severity": "MEDIUM",
+    "likelihood": "Low",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_net_014", "zt_net_003"],
+    "narrative": "Azure Bastion is deployed in a hub VNet that peers to many spoke VNets. Any authenticated Bastion user can SSH into any VM in any peered subnet. No subnet-level scoping applied — so a developer with read RBAC can reach prod VMs through Bastion.",
+    "steps": [
+      {"number": 1, "actor": "Legit user", "action": "Open Bastion; connect to a VM in a prod subnet they shouldn't.", "technique": "T1021", "enabled_by": "zt_net_014", "gain": "Prod shell access."},
+      {"number": 2, "actor": "Attacker with user creds", "action": "Pivot to further prod systems via Bastion.", "technique": "T1021.004", "enabled_by": "zt_net_003", "gain": "Prod lateral movement."}
+    ],
+    "blast_radius": {
+      "initial_access": "Bastion user login.",
+      "max_privilege": "All peered VMs.",
+      "data_at_risk": ["Any VM reachable via hub Bastion"],
+      "services_at_risk": ["Hub-and-spoke topology"]
+    }
+  }
+]

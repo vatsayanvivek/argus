@@ -1,0 +1,73 @@
+name: Deploy docs
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - 'policies/**'
+      - 'internal/engine/correlator.go'
+      - 'cmd/gendocs/**'
+      - '.github/workflows/docs.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+
+      - name: Regenerate rule + chain pages
+        run: |
+          go run ./cmd/gendocs
+          echo "Generated:"
+          ls docs/content/rules | head
+          ls docs/content/chains | head
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install MkDocs
+        run: |
+          pip install \
+            mkdocs==1.6.1 \
+            mkdocs-material==9.5.49 \
+            pymdown-extensions==10.14.3 \
+            pygments==2.19.1
+
+      - name: Build site
+        working-directory: docs
+        run: mkdocs build --strict
+
+      - name: Upload site artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

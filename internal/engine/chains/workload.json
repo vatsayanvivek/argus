@@ -1,0 +1,477 @@
+[
+  {
+    "id": "CHAIN-117",
+    "title": "VMSS without OS auto-upgrade + public SSH",
+    "severity": "HIGH",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_wl_029", "zt_net_001"],
+    "narrative": "A VM Scale Set has OS auto-upgrade disabled and its instance count exposes SSH to the internet. Instances run months-old kernels; any published CVE with public exploit gives one-click RCE on every instance in the pool.",
+    "steps": [
+      {"number": 1, "actor": "Attacker", "action": "Match VMSS banner to known kernel CVE.", "technique": "T1595", "enabled_by": "zt_wl_029", "gain": "Exploit candidate."},
+      {"number": 2, "actor": "Attacker", "action": "Exploit kernel CVE; root shell on all instances.", "technique": "T1210", "enabled_by": "zt_net_001", "gain": "Fleet-wide compromise."}
+    ],
+    "blast_radius": {
+      "initial_access": "Internet SSH + unpatched kernel.",
+      "max_privilege": "Root on every VMSS instance.",
+      "data_at_risk": ["Workload data", "MI tokens"],
+      "services_at_risk": ["VMSS", "Dependent services"]
+    }
+  },
+  {
+    "id": "CHAIN-118",
+    "title": "Container App with external ingress + managed identity overprivileged",
+    "severity": "HIGH",
+    "likelihood": "High",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_wl_025", "zt_id_008"],
+    "narrative": "A Container App accepts public HTTP ingress AND its user-assigned managed identity holds Contributor at subscription scope. Any RCE in the app yields Azure management-plane takeover.",
+    "steps": [
+      {"number": 1, "actor": "Attacker", "action": "Exploit app-layer vuln (SSRF, deserialization) in the Container App.", "technique": "T1190", "enabled_by": "zt_wl_025", "gain": "RCE inside container."},
+      {"number": 2, "actor": "Attacker", "action": "Call IMDS; get ARM token scoped as Contributor.", "technique": "T1552.005", "enabled_by": "zt_id_008", "gain": "Subscription-level privilege."}
+    ],
+    "blast_radius": {
+      "initial_access": "Public Container App.",
+      "max_privilege": "Subscription Contributor.",
+      "data_at_risk": ["Every resource in the subscription"],
+      "services_at_risk": ["Azure RBAC plane"]
+    }
+  },
+  {
+    "id": "CHAIN-119",
+    "title": "App Service without auth + connection string in app settings",
+    "severity": "HIGH",
+    "likelihood": "High",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_wl_002", "zt_wl_017"],
+    "narrative": "An App Service has Easy Auth disabled and its app settings store database + storage connection strings. An attacker hitting the unauthenticated /api routes can often trigger endpoints that inadvertently expose environment variables (error pages, debug endpoints).",
+    "steps": [
+      {"number": 1, "actor": "Attacker", "action": "Probe the unauth API for a stack trace or /env endpoint.", "technique": "T1190", "enabled_by": "zt_wl_002", "gain": "Environment dump."},
+      {"number": 2, "actor": "Attacker", "action": "Extract connection strings; connect directly to backends.", "technique": "T1552.001", "enabled_by": "zt_wl_017", "gain": "Full backend DB / storage access."}
+    ],
+    "blast_radius": {
+      "initial_access": "Unauth endpoint.",
+      "max_privilege": "Whatever the connection string grants.",
+      "data_at_risk": ["Backend datastore"],
+      "services_at_risk": ["DB / storage backing the app"]
+    }
+  },
+  {
+    "id": "CHAIN-120",
+    "title": "Function App with over-privileged Graph permission",
+    "severity": "HIGH",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_wl_002", "zt_id_011"],
+    "narrative": "A Function App is granted Directory.ReadWrite.All via its managed identity — the developer couldn't figure out the least-privilege scope. Any prompt-injection / template-injection / upstream-library-compromise against the function gives attackers tenant-wide directory write.",
+    "steps": [
+      {"number": 1, "actor": "Attacker", "action": "Exploit injection vuln in function HTTP handler.", "technique": "T1190", "enabled_by": "zt_wl_002", "gain": "Code execution with function MI."},
+      {"number": 2, "actor": "Attacker", "action": "Use MI's Directory.ReadWrite.All to create admin users.", "technique": "T1098", "enabled_by": "zt_id_011", "gain": "Tenant admin persistence."}
+    ],
+    "blast_radius": {
+      "initial_access": "Function-app vuln.",
+      "max_privilege": "Tenant directory write.",
+      "data_at_risk": ["All directory objects"],
+      "services_at_risk": ["Entra ID"]
+    }
+  },
+  {
+    "id": "CHAIN-121",
+    "title": "AKS private cluster with unrestricted egress",
+    "severity": "MEDIUM",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_wl_005", "zt_net_024"],
+    "narrative": "AKS is private (no public API server) but the cluster's egress firewall allows any outbound destination. A compromised pod can exfiltrate or call out to C2 freely, and the 'private cluster' label gives the security team a false sense of containment.",
+    "steps": [
+      {"number": 1, "actor": "Compromised pod", "action": "Establish outbound C2 tunnel through unrestricted NAT.", "technique": "T1071.001", "enabled_by": "zt_wl_005", "gain": "Live C2 channel."},
+      {"number": 2, "actor": "Attacker", "action": "Exfil cluster secrets, node identity tokens.", "technique": "T1041", "enabled_by": "zt_net_024", "gain": "Pod-level secret extraction"}
+    ],
+    "blast_radius": {
+      "initial_access": "Any pod compromise.",
+      "max_privilege": "Egress to attacker infrastructure.",
+      "data_at_risk": ["Pod memory, service account tokens"],
+      "services_at_risk": ["AKS cluster secrets"]
+    }
+  },
+  {
+    "id": "CHAIN-122",
+    "title": "AKS node pool SSH enabled",
+    "severity": "HIGH",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_wl_006", "zt_net_001"],
+    "narrative": "AKS node pool VMs have SSH enabled and accept password auth. SSH is meant for on-call debugging; the node has full kubelet credentials and can impersonate the cluster to the control plane.",
+    "steps": [
+      {"number": 1, "actor": "Attacker", "action": "Brute-force SSH against node public IP or peered subnet.", "technique": "T1110", "enabled_by": "zt_wl_006", "gain": "Node shell."},
+      {"number": 2, "actor": "Attacker", "action": "Read /etc/kubernetes/kubelet.conf; impersonate kubelet.", "technique": "T1552.001", "enabled_by": "zt_net_001", "gain": "Cluster-wide pod create/delete."}
+    ],
+    "blast_radius": {
+      "initial_access": "SSH to node.",
+      "max_privilege": "Cluster admin via kubelet.",
+      "data_at_risk": ["Every pod secret"],
+      "services_at_risk": ["Entire AKS cluster"]
+    }
+  },
+  {
+    "id": "CHAIN-123",
+    "title": "AKS without network policies — pod-to-pod free-for-all",
+    "severity": "MEDIUM",
+    "likelihood": "High",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_wl_009", "zt_wl_012"],
+    "narrative": "AKS cluster has no NetworkPolicy / Calico enforcement. Any compromised pod can freely reach other pods' services — including kube-system, metrics servers, and the metadata proxy. There is no lateral segmentation inside the cluster.",
+    "steps": [
+      {"number": 1, "actor": "Compromised pod", "action": "Scan cluster DNS for service endpoints.", "technique": "T1046", "enabled_by": "zt_wl_009", "gain": "Full inventory of cluster services."},
+      {"number": 2, "actor": "Pod", "action": "Exploit an in-cluster unauthenticated service.", "technique": "T1210", "enabled_by": "zt_wl_012", "gain": "Second pod compromise via cluster-internal reachability."}
+    ],
+    "blast_radius": {
+      "initial_access": "Any pod compromise.",
+      "max_privilege": "Full cluster internal lateral movement.",
+      "data_at_risk": ["Other pods' secrets and data"],
+      "services_at_risk": ["Every in-cluster service"]
+    }
+  },
+  {
+    "id": "CHAIN-124",
+    "title": "AKS privileged pod + host path mount",
+    "severity": "CRITICAL",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_wl_010", "zt_wl_013"],
+    "narrative": "A pod runs privileged: true AND mounts /var/run/docker.sock or /host. Container escape is trivial — the pod can exec into the host, ptrace other containers, or create new containers with arbitrary parameters.",
+    "steps": [
+      {"number": 1, "actor": "Compromised pod", "action": "Access the host socket; docker run --privileged -v /:/host attacker.", "technique": "T1611", "enabled_by": "zt_wl_010", "gain": "Host filesystem access."},
+      {"number": 2, "actor": "Attacker on node", "action": "Dump kubelet creds; cluster admin.", "technique": "T1552", "enabled_by": "zt_wl_013", "gain": "Cluster admin from single pod compromise."}
+    ],
+    "blast_radius": {
+      "initial_access": "Any pod compromise.",
+      "max_privilege": "Cluster admin.",
+      "data_at_risk": ["Every pod's secrets"],
+      "services_at_risk": ["Entire cluster"]
+    }
+  },
+  {
+    "id": "CHAIN-125",
+    "title": "AKS image pulled from untrusted registry",
+    "severity": "HIGH",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_wl_014", "zt_wl_013"],
+    "narrative": "Pods pull images from public Docker Hub without image signing / admission control. A supply-chain compromise (typosquat, namespace takeover) yields attacker-controlled code in every pod restart.",
+    "steps": [
+      {"number": 1, "actor": "Supply-chain attacker", "action": "Publish malicious image to a registry path similar to the real one.", "technique": "T1195.002", "enabled_by": "zt_wl_014", "gain": "Trojaned image available."},
+      {"number": 2, "actor": "Kubelet", "action": "On pod restart pulls the malicious image; attacker code runs in-cluster.", "technique": "T1554", "enabled_by": "zt_wl_013", "gain": "In-cluster code execution."}
+    ],
+    "blast_radius": {
+      "initial_access": "Registry compromise.",
+      "max_privilege": "Pod-level RCE; often cluster-admin via privileged container.",
+      "data_at_risk": ["Whatever the pod can reach"],
+      "services_at_risk": ["Any workload using the registry"]
+    }
+  },
+  {
+    "id": "CHAIN-126",
+    "title": "Service Fabric cluster with TLS downgrade",
+    "severity": "HIGH",
+    "likelihood": "Low",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_wl_027", "zt_net_002"],
+    "narrative": "A Service Fabric cluster accepts TLS 1.0 for node-to-node communication. A legacy-protocol downgrade attack on the management endpoint yields cluster admin — Service Fabric node identity is the root of trust for the entire cluster.",
+    "steps": [
+      {"number": 1, "actor": "On-path adversary", "action": "Force TLS 1.0 negotiation; MITM the session.", "technique": "T1557.001", "enabled_by": "zt_wl_027", "gain": "Decrypted node-to-node traffic."},
+      {"number": 2, "actor": "Attacker", "action": "Replay node auth; join attacker node as cluster member.", "technique": "T1606.002", "enabled_by": "zt_net_002", "gain": "Service Fabric node that controls the cluster."}
+    ],
+    "blast_radius": {
+      "initial_access": "On-path MITM.",
+      "max_privilege": "Cluster admin.",
+      "data_at_risk": ["All app state"],
+      "services_at_risk": ["Service Fabric cluster"]
+    }
+  },
+  {
+    "id": "CHAIN-127",
+    "title": "Batch account compute pool with storage cred in init script",
+    "severity": "HIGH",
+    "likelihood": "Low",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_wl_031", "zt_data_001"],
+    "narrative": "Azure Batch pool startup task contains a plaintext storage account key. Every pool VM boots with this in its metadata. An attacker on any Batch node can read it and access the storage account from elsewhere.",
+    "steps": [
+      {"number": 1, "actor": "Attacker on Batch node", "action": "Read CustomData / startup script.", "technique": "T1552.001", "enabled_by": "zt_wl_031", "gain": "Storage account key."},
+      {"number": 2, "actor": "Attacker", "action": "Authenticate from outside the Batch network.", "technique": "T1078", "enabled_by": "zt_data_001", "gain": "Persistent storage access."}
+    ],
+    "blast_radius": {
+      "initial_access": "Batch node compromise.",
+      "max_privilege": "Storage account owner-equivalent.",
+      "data_at_risk": ["Full storage account"],
+      "services_at_risk": ["Storage", "Any app sharing the storage account"]
+    }
+  },
+  {
+    "id": "CHAIN-128",
+    "title": "App Configuration exposed without private endpoint",
+    "severity": "MEDIUM",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_wl_026", "zt_data_001"],
+    "narrative": "Azure App Configuration is reachable publicly and some keys carry feature-flag defaults that leak roadmap info, along with secret references that can be resolved to Key Vault URLs. A token with App Config Reader reveals more than intended.",
+    "steps": [
+      {"number": 1, "actor": "Attacker with any reader token", "action": "List app config entries.", "technique": "T1087", "enabled_by": "zt_wl_026", "gain": "Config key inventory + secret references."},
+      {"number": 2, "actor": "Attacker", "action": "Resolve secret references; extract referenced Key Vault secrets.", "technique": "T1552", "enabled_by": "zt_data_001", "gain": "Secret values beyond what App Config holds directly."}
+    ],
+    "blast_radius": {
+      "initial_access": "Any App Config reader role.",
+      "max_privilege": "Config keys + pointer-chased secrets.",
+      "data_at_risk": ["App configuration surface"],
+      "services_at_risk": ["Any app reading this config"]
+    }
+  },
+  {
+    "id": "CHAIN-129",
+    "title": "VMSS custom image drift — older CVE-prone version",
+    "severity": "HIGH",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_wl_015", "zt_wl_029"],
+    "narrative": "VMSS uses a custom image built 18 months ago. New instances boot with the same stale OS and package versions. The fleet drifts from 'golden image' security posture over time, silently accumulating exploitable CVEs.",
+    "steps": [
+      {"number": 1, "actor": "Time", "action": "CVE-2024-xxxx published; image is affected.", "technique": "T1190", "enabled_by": "zt_wl_015", "gain": "Public exploit for stale image."},
+      {"number": 2, "actor": "Attacker", "action": "Attack the fleet; every instance vulnerable.", "technique": "T1210", "enabled_by": "zt_wl_029", "gain": "Fleet compromise."}
+    ],
+    "blast_radius": {
+      "initial_access": "Public exploit.",
+      "max_privilege": "Root on VMSS instances.",
+      "data_at_risk": ["Workload data"],
+      "services_at_risk": ["VMSS fleet"]
+    }
+  },
+  {
+    "id": "CHAIN-130",
+    "title": "Container Registry with admin user enabled",
+    "severity": "MEDIUM",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_wl_018", "zt_data_001"],
+    "narrative": "ACR has admin user enabled — a single shared credential that nobody rotates. CI systems and developers all use the same username/password. A single leak yields push rights into the registry, so attackers can insert malicious images.",
+    "steps": [
+      {"number": 1, "actor": "Attacker", "action": "Harvest the ACR admin password from a CI log or developer machine.", "technique": "T1552.001", "enabled_by": "zt_wl_018", "gain": "Registry push rights."},
+      {"number": 2, "actor": "Attacker", "action": "Push a trojaned 'latest' tag; wait for pods to pull.", "technique": "T1195.002", "enabled_by": "zt_data_001", "gain": "Supply-chain compromise of every consumer."}
+    ],
+    "blast_radius": {
+      "initial_access": "Leaked shared credential.",
+      "max_privilege": "Push access to every repo in ACR.",
+      "data_at_risk": ["Every consumer's runtime integrity"],
+      "services_at_risk": ["Every service pulling from this ACR"]
+    }
+  },
+  {
+    "id": "CHAIN-131",
+    "title": "ACR anonymous pull + AKS no image policy",
+    "severity": "MEDIUM",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_wl_019", "zt_wl_014"],
+    "narrative": "ACR allows anonymous pull and AKS has no admission control on image source. An attacker registered in ACR as a pusher (via any other chain) can publish images the cluster will pull blindly.",
+    "steps": [
+      {"number": 1, "actor": "Attacker with push", "action": "Push attacker-image to a commonly-pulled repo path.", "technique": "T1195.002", "enabled_by": "zt_wl_019", "gain": "Trojaned image in registry."},
+      {"number": 2, "actor": "Kubelet", "action": "Anonymous-pull the image; no signature check.", "technique": "T1554", "enabled_by": "zt_wl_014", "gain": "In-cluster attacker execution."}
+    ],
+    "blast_radius": {
+      "initial_access": "Any ACR push + AKS pull.",
+      "max_privilege": "Pod-level code exec.",
+      "data_at_risk": ["Cluster secrets"],
+      "services_at_risk": ["AKS pulling from this ACR"]
+    }
+  },
+  {
+    "id": "CHAIN-132",
+    "title": "AKS ingress controller without WAF",
+    "severity": "MEDIUM",
+    "likelihood": "High",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_wl_020", "zt_net_007"],
+    "narrative": "AKS nginx-ingress is exposed to the internet without an AKS-attached WAF or Front Door in front. SQL injection, XSS, and RCE attempts hit backends directly. Traffic logging goes to ingress pod stdout only.",
+    "steps": [
+      {"number": 1, "actor": "Attacker", "action": "Send OWASP Top-10 payloads; no WAF filters them.", "technique": "T1190", "enabled_by": "zt_wl_020", "gain": "App-layer exploitation."},
+      {"number": 2, "actor": "Attacker", "action": "Exploit reaches backend service.", "technique": "T1210", "enabled_by": "zt_net_007", "gain": "Internal compromise."}
+    ],
+    "blast_radius": {
+      "initial_access": "Internet to ingress.",
+      "max_privilege": "Backend app RCE.",
+      "data_at_risk": ["App + DB"],
+      "services_at_risk": ["All apps behind ingress"]
+    }
+  },
+  {
+    "id": "CHAIN-133",
+    "title": "AKS cluster autoscaler unrestricted — DoS via pod spam",
+    "severity": "LOW",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_wl_021", "zt_wl_012"],
+    "narrative": "Cluster autoscaler has no upper node-count limit and pod QoS has no ResourceQuota. A tenant-scoped attacker creates thousands of pending pods; cluster scales out to absorb them, generating a huge Azure bill.",
+    "steps": [
+      {"number": 1, "actor": "Authorised tenant", "action": "kubectl create -f thousand-pods.yaml.", "technique": "T1496", "enabled_by": "zt_wl_021", "gain": "Autoscaler adds nodes."},
+      {"number": 2, "actor": "Attacker", "action": "Sustain load; financial damage + noisy-neighbor DoS.", "technique": "T1496", "enabled_by": "zt_wl_012", "gain": "Cost attack + legitimate tenant DoS."}
+    ],
+    "blast_radius": {
+      "initial_access": "Any kubectl create permission.",
+      "max_privilege": "Resource exhaustion / financial harm.",
+      "data_at_risk": ["Cluster availability for others"],
+      "services_at_risk": ["Multi-tenant cluster"]
+    }
+  },
+  {
+    "id": "CHAIN-134",
+    "title": "Spot VM + unhandled eviction exposes running data",
+    "severity": "LOW",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_wl_022", "zt_data_015"],
+    "narrative": "Spot VMs are evicted with 30-second notice; apps that don't checkpoint leave in-memory data in page files on the VHD. If disk encryption isn't enforced for ephemeral OS disks, a later attacker-controlled Spot allocation reuses the same hardware and can potentially recover residual data.",
+    "steps": [
+      {"number": 1, "actor": "Azure infrastructure", "action": "Evict spot VM; data written to disk not fully wiped.", "technique": "T1486", "enabled_by": "zt_wl_022", "gain": "Residual data on ephemeral storage."},
+      {"number": 2, "actor": "Attacker with new spot", "action": "Lucky-allocation yields the same underlying storage; extract residual data.", "technique": "T1005", "enabled_by": "zt_data_015", "gain": "Cross-tenant data recovery."}
+    ],
+    "blast_radius": {
+      "initial_access": "Luck + spot allocation.",
+      "max_privilege": "Historical data residual.",
+      "data_at_risk": ["Previous workload memory state"],
+      "services_at_risk": ["Spot VM consumers"]
+    }
+  },
+  {
+    "id": "CHAIN-135",
+    "title": "Windows VM with Legacy Auth / NTLM enabled",
+    "severity": "HIGH",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_wl_023", "zt_net_001"],
+    "narrative": "A Windows VM accepts NTLM authentication and exposes SMB (445) to the VNet. An attacker who compromises a low-privilege VM can SMB-relay against the target, capturing a domain-hashed credential for offline crack.",
+    "steps": [
+      {"number": 1, "actor": "Attacker on low-priv VM", "action": "Run ntlmrelayx against target VM.", "technique": "T1557.001", "enabled_by": "zt_wl_023", "gain": "NTLM auth response captured."},
+      {"number": 2, "actor": "Attacker", "action": "Crack offline; pass the hash.", "technique": "T1550.002", "enabled_by": "zt_net_001", "gain": "Domain cred or admin access."}
+    ],
+    "blast_radius": {
+      "initial_access": "Low-priv VM + target VM.",
+      "max_privilege": "Domain credentials.",
+      "data_at_risk": ["Domain-wide AD-joined systems"],
+      "services_at_risk": ["Windows domain"]
+    }
+  },
+  {
+    "id": "CHAIN-136",
+    "title": "Container App Environment shared across dev/prod",
+    "severity": "MEDIUM",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_wl_030", "zt_net_003"],
+    "narrative": "Dev and prod Container Apps share a single Managed Environment. Dev teams push changes without staging; a vulnerable dev app in the same VNet can reach prod services and secrets over the shared internal network.",
+    "steps": [
+      {"number": 1, "actor": "Attacker", "action": "Compromise dev Container App (weaker controls).", "technique": "T1190", "enabled_by": "zt_wl_030", "gain": "Foothold in shared env."},
+      {"number": 2, "actor": "Attacker", "action": "Pivot to prod services over the shared VNet.", "technique": "T1021", "enabled_by": "zt_net_003", "gain": "Prod compromise via dev."}
+    ],
+    "blast_radius": {
+      "initial_access": "Dev Container App.",
+      "max_privilege": "Prod network reachability.",
+      "data_at_risk": ["Prod secrets"],
+      "services_at_risk": ["Prod Container Apps"]
+    }
+  },
+  {
+    "id": "CHAIN-137",
+    "title": "VM extension custom script contains embedded password",
+    "severity": "MEDIUM",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_wl_024", "zt_wl_028"],
+    "narrative": "A VM is provisioned with a custom-script extension that passes credentials as script arguments. Anyone with Reader on the VM can view the extension's settings including plaintext args. No secret rotation, no history.",
+    "steps": [
+      {"number": 1, "actor": "Reader", "action": "View VM extension settings via ARM API.", "technique": "T1552.001", "enabled_by": "zt_wl_024", "gain": "Plaintext credential in extension args."},
+      {"number": 2, "actor": "Attacker", "action": "Use credential to authenticate elsewhere.", "technique": "T1078", "enabled_by": "zt_wl_028", "gain": "Follow-on access."}
+    ],
+    "blast_radius": {
+      "initial_access": "Reader role.",
+      "max_privilege": "Whatever cred grants.",
+      "data_at_risk": ["Downstream systems"],
+      "services_at_risk": ["Wherever the cred is valid"]
+    }
+  },
+  {
+    "id": "CHAIN-138",
+    "title": "VM Monitor agent missing — no host forensics",
+    "severity": "MEDIUM",
+    "likelihood": "High",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_wl_008", "zt_vis_001"],
+    "narrative": "Production VMs don't have Azure Monitor Agent installed. During IR, the SOC has neither process execution logs nor file-integrity events. Forensics depends entirely on host-level artifacts captured post-incident.",
+    "steps": [
+      {"number": 1, "actor": "Attacker", "action": "Compromise VM; actions leave no host-level telemetry streamed out.", "technique": "T1562.006", "enabled_by": "zt_wl_008", "gain": "Silent compromise."},
+      {"number": 2, "actor": "SOC", "action": "Cannot reconstruct attacker actions after the fact.", "technique": "T1562.006", "enabled_by": "zt_vis_001", "gain": "Forensic blindness."}
+    ],
+    "blast_radius": {
+      "initial_access": "VM compromise.",
+      "max_privilege": "Forensic blindness.",
+      "data_at_risk": ["IR integrity"],
+      "services_at_risk": ["All VM-based workloads"]
+    }
+  },
+  {
+    "id": "CHAIN-139",
+    "title": "Container App secret rotation miss",
+    "severity": "MEDIUM",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_wl_030", "zt_id_001"],
+    "narrative": "Container App secrets (API keys, DB passwords) are set at deploy time and never rotated. A developer leaving the team still has access because the secret they provisioned is still live.",
+    "steps": [
+      {"number": 1, "actor": "Former developer", "action": "Use the unchanged secret months later.", "technique": "T1078", "enabled_by": "zt_wl_030", "gain": "Persistent access despite offboarding."},
+      {"number": 2, "actor": "Former dev", "action": "Pivot to downstream systems.", "technique": "T1078", "enabled_by": "zt_id_001", "gain": "Offboarding gap exploitation."}
+    ],
+    "blast_radius": {
+      "initial_access": "Unchanged secret.",
+      "max_privilege": "Whatever secret grants.",
+      "data_at_risk": ["App-scope data"],
+      "services_at_risk": ["Downstream services the secret unlocks"]
+    }
+  },
+  {
+    "id": "CHAIN-140",
+    "title": "Kubernetes workload identity shared across namespaces",
+    "severity": "HIGH",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_wl_011", "zt_id_008"],
+    "narrative": "Azure Workload Identity federation maps one Entra identity to a service account referenced in both dev and prod namespaces. A dev-namespace RCE yields the identity's tokens — same tokens prod uses. Namespace boundary is meaningless.",
+    "steps": [
+      {"number": 1, "actor": "Attacker in dev pod", "action": "Federated token exchange for the shared Entra ID.", "technique": "T1552.005", "enabled_by": "zt_wl_011", "gain": "Entra identity access."},
+      {"number": 2, "actor": "Attacker", "action": "Use identity to access resources intended only for prod pods.", "technique": "T1078", "enabled_by": "zt_id_008", "gain": "Cross-namespace privilege escalation."}
+    ],
+    "blast_radius": {
+      "initial_access": "Dev namespace compromise.",
+      "max_privilege": "Prod workload identity scope.",
+      "data_at_risk": ["Prod resources"],
+      "services_at_risk": ["Any Azure resource granted to the shared ID"]
+    }
+  },
+  {
+    "id": "CHAIN-141",
+    "title": "VM disk encryption key rotation missed",
+    "severity": "MEDIUM",
+    "likelihood": "Low",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_wl_016", "zt_data_006"],
+    "narrative": "VMs use Azure Disk Encryption but the encryption key has not been rotated in 3+ years. A former Key Vault admin with a copy of the key can still decrypt any disk snapshot made during that period.",
+    "steps": [
+      {"number": 1, "actor": "Former admin", "action": "Obtain an old snapshot (backup archive, cold storage).", "technique": "T1588.002", "enabled_by": "zt_wl_016", "gain": "Historical disk VHD."},
+      {"number": 2, "actor": "Former admin", "action": "Decrypt using retained key.", "technique": "T1552.004", "enabled_by": "zt_data_006", "gain": "Historical disk contents."}
+    ],
+    "blast_radius": {
+      "initial_access": "Retained key material.",
+      "max_privilege": "Decrypt old snapshots.",
+      "data_at_risk": ["Archived VM data"],
+      "services_at_risk": ["Any VM disk from the key's lifetime"]
+    }
+  }
+]

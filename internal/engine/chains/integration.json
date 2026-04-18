@@ -1,0 +1,287 @@
+[
+  {
+    "id": "CHAIN-157",
+    "title": "APIM weak TLS + named value stored in cleartext",
+    "severity": "HIGH",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_int_001", "zt_int_002"],
+    "narrative": "APIM accepts TLS 1.0 on the gateway AND stores backend credentials as cleartext named values. A downgrade-then-sniff attack on the gateway exposes traffic; reading the APIM config surface reveals backend secrets.",
+    "steps": [
+      {"number": 1, "actor": "Attacker", "action": "Force TLS 1.0; sniff gateway traffic.", "technique": "T1557.001", "enabled_by": "zt_int_001", "gain": "Plaintext API calls."},
+      {"number": 2, "actor": "Attacker with Contributor", "action": "Read APIM named values; harvest backend creds.", "technique": "T1552.001", "enabled_by": "zt_int_002", "gain": "Direct backend access."}
+    ],
+    "blast_radius": {
+      "initial_access": "TLS + Contributor.",
+      "max_privilege": "Backend credentials.",
+      "data_at_risk": ["Every backend API the gateway fronts"],
+      "services_at_risk": ["APIM + every backend"]
+    }
+  },
+  {
+    "id": "CHAIN-158",
+    "title": "Event Grid topic without authentication",
+    "severity": "HIGH",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_int_003", "zt_wl_002"],
+    "narrative": "An Event Grid topic accepts events from any source (no SAS, no AAD). An attacker publishes forged events that downstream consumers trust as legitimate — common for order-confirmation systems, payment events, and audit trails.",
+    "steps": [
+      {"number": 1, "actor": "Attacker", "action": "POST a forged event to the topic endpoint.", "technique": "T1584", "enabled_by": "zt_int_003", "gain": "Event delivered to subscribers."},
+      {"number": 2, "actor": "Subscriber app", "action": "Process the forged event as if it were real.", "technique": "T1565.001", "enabled_by": "zt_wl_002", "gain": "Fraudulent business transactions processed."}
+    ],
+    "blast_radius": {
+      "initial_access": "Public topic endpoint.",
+      "max_privilege": "Event injection.",
+      "data_at_risk": ["Business event integrity"],
+      "services_at_risk": ["Every subscriber"]
+    }
+  },
+  {
+    "id": "CHAIN-159",
+    "title": "Service Bus SAS-only auth + key sprawl",
+    "severity": "HIGH",
+    "likelihood": "High",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_int_004", "zt_id_001"],
+    "narrative": "Service Bus namespace uses only SAS policies (no Entra ID integration). The RootManageSharedAccessKey is shared across CI, apps, and developer laptops. A leaked key gives full send/receive on every queue and topic.",
+    "steps": [
+      {"number": 1, "actor": "Attacker", "action": "Harvest RootManageSharedAccessKey from CI env var.", "technique": "T1552.001", "enabled_by": "zt_int_004", "gain": "Valid Service Bus master key."},
+      {"number": 2, "actor": "Attacker", "action": "Read every queue; inject malicious messages.", "technique": "T1565.001", "enabled_by": "zt_id_001", "gain": "Message bus poisoning + message content exfil."}
+    ],
+    "blast_radius": {
+      "initial_access": "Leaked key.",
+      "max_privilege": "Namespace-wide SAS.",
+      "data_at_risk": ["Every queue / topic message"],
+      "services_at_risk": ["Service Bus + consumers"]
+    }
+  },
+  {
+    "id": "CHAIN-160",
+    "title": "Event Hub with Capture to public-access storage",
+    "severity": "MEDIUM",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_int_005", "zt_data_001"],
+    "narrative": "Event Hub Capture writes every stream event to a storage account that has public blob access enabled. A downstream compliance leak: sensitive event data intended for a VNet-only datalake ends up readable over the internet.",
+    "steps": [
+      {"number": 1, "actor": "Misconfig", "action": "Capture writes to container with allowBlobPublicAccess=true.", "technique": "T1213", "enabled_by": "zt_int_005", "gain": "Capture output publicly readable."},
+      {"number": 2, "actor": "Attacker", "action": "Enumerate and download capture blobs; historical event stream exposed.", "technique": "T1530", "enabled_by": "zt_data_001", "gain": "Historical stream content."}
+    ],
+    "blast_radius": {
+      "initial_access": "Anon internet.",
+      "max_privilege": "Read on capture output.",
+      "data_at_risk": ["Every historical event"],
+      "services_at_risk": ["Event Hub + downstream analytics"]
+    }
+  },
+  {
+    "id": "CHAIN-161",
+    "title": "Logic Apps run history exposes secrets in trigger logs",
+    "severity": "MEDIUM",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_int_006", "zt_wl_017"],
+    "narrative": "Logic Apps run history records every input/output of every action. An action that calls an external API with a Bearer token stores the token in the run log. Any user with Logic App Reader can replay those tokens for follow-on access.",
+    "steps": [
+      {"number": 1, "actor": "Reader", "action": "Open Logic App run history; expand HTTP action inputs.", "technique": "T1552.001", "enabled_by": "zt_int_006", "gain": "Valid bearer token."},
+      {"number": 2, "actor": "Attacker", "action": "Replay token against target API.", "technique": "T1550.001", "enabled_by": "zt_wl_017", "gain": "API access."}
+    ],
+    "blast_radius": {
+      "initial_access": "Logic App Reader role.",
+      "max_privilege": "Token-scoped API.",
+      "data_at_risk": ["Anything the token grants"],
+      "services_at_risk": ["Backend API + dependent systems"]
+    }
+  },
+  {
+    "id": "CHAIN-162",
+    "title": "Traffic Manager with HTTP (unencrypted) endpoint in pool",
+    "severity": "MEDIUM",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_int_007", "zt_net_002"],
+    "narrative": "Traffic Manager profile includes at least one endpoint reachable over HTTP (port 80) not HTTPS. Failover to that endpoint drops TLS — users experience plaintext traffic to a 'secure' site during regional failures.",
+    "steps": [
+      {"number": 1, "actor": "Infrastructure event", "action": "Primary endpoint fails; failover activates HTTP-only endpoint.", "technique": "T1499", "enabled_by": "zt_int_007", "gain": "User traffic routed to plaintext endpoint."},
+      {"number": 2, "actor": "On-path attacker", "action": "Sniff or MITM user sessions.", "technique": "T1557", "enabled_by": "zt_net_002", "gain": "Credential capture during failover."}
+    ],
+    "blast_radius": {
+      "initial_access": "Network path + failover event.",
+      "max_privilege": "Credential theft.",
+      "data_at_risk": ["Session cookies, auth headers"],
+      "services_at_risk": ["Traffic Manager consumers"]
+    }
+  },
+  {
+    "id": "CHAIN-163",
+    "title": "Front Door origin pool without health probe",
+    "severity": "LOW",
+    "likelihood": "High",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_int_008", "zt_net_007"],
+    "narrative": "Front Door origin pool has no health probe configured. A failed origin silently receives traffic and returns 502s. During an incident, Front Door cannot route around the failure — availability SLA is meaningless.",
+    "steps": [
+      {"number": 1, "actor": "Origin failure", "action": "Origin returns 500s; Front Door continues to route.", "technique": "T1499", "enabled_by": "zt_int_008", "gain": "Availability collapse."},
+      {"number": 2, "actor": "Business impact", "action": "Extended user-facing outage.", "technique": "T1499", "enabled_by": "zt_net_007", "gain": "Downtime / SLA breach."}
+    ],
+    "blast_radius": {
+      "initial_access": "Origin failure event.",
+      "max_privilege": "Availability impact.",
+      "data_at_risk": ["Service uptime"],
+      "services_at_risk": ["Front Door + backing app"]
+    }
+  },
+  {
+    "id": "CHAIN-164",
+    "title": "API Connection with embedded creds — shared across Logic Apps",
+    "severity": "MEDIUM",
+    "likelihood": "High",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_int_006", "zt_int_002"],
+    "narrative": "An API Connection object stores credentials inline and is referenced by 20+ Logic Apps. Rotating the underlying credential means coordinating edits across all 20 workflows — so it never happens. One credential leak compromises the whole portfolio of integrations.",
+    "steps": [
+      {"number": 1, "actor": "Attacker", "action": "Extract API Connection credential via ARM Reader.", "technique": "T1552.001", "enabled_by": "zt_int_006", "gain": "Widely-used credential."},
+      {"number": 2, "actor": "Attacker", "action": "Use credential; 20 Logic Apps look like legitimate callers.", "technique": "T1078", "enabled_by": "zt_int_002", "gain": "Blending into 20 identity patterns."}
+    ],
+    "blast_radius": {
+      "initial_access": "ARM Reader.",
+      "max_privilege": "Shared connector scope.",
+      "data_at_risk": ["Everything the connector reaches"],
+      "services_at_risk": ["20+ Logic Apps"]
+    }
+  },
+  {
+    "id": "CHAIN-165",
+    "title": "Integration Account EDI content without encryption",
+    "severity": "MEDIUM",
+    "likelihood": "Low",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_int_008", "zt_data_006"],
+    "narrative": "B2B EDI messages (X12, EDIFACT) flow through an Integration Account without at-rest encryption beyond Microsoft defaults. Regulated industries (healthcare, financial trading) require CMK — audit finding plus liability.",
+    "steps": [
+      {"number": 1, "actor": "Audit event", "action": "Auditor flags Integration Account without CMK.", "technique": "T1213", "enabled_by": "zt_int_008", "gain": "Compliance failure."},
+      {"number": 2, "actor": "Legal event", "action": "Subpoena + no customer-controlled key means no plausible deniability.", "technique": "T1552.004", "enabled_by": "zt_data_006", "gain": "Regulatory / liability exposure."}
+    ],
+    "blast_radius": {
+      "initial_access": "Audit / legal.",
+      "max_privilege": "Regulatory exposure.",
+      "data_at_risk": ["EDI transaction history"],
+      "services_at_risk": ["Integration Account"]
+    }
+  },
+  {
+    "id": "CHAIN-166",
+    "title": "Service Bus Relay without authentication",
+    "severity": "HIGH",
+    "likelihood": "Low",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_int_004", "zt_wl_002"],
+    "narrative": "A WCF Service Bus Relay exposes an on-prem service to the internet without authentication. Anyone who discovers the relay URL reaches the backend service directly — bypassing corporate perimeter controls.",
+    "steps": [
+      {"number": 1, "actor": "Attacker", "action": "Enumerate *.servicebus.windows.net for relay endpoints.", "technique": "T1595", "enabled_by": "zt_int_004", "gain": "Reachable on-prem service."},
+      {"number": 2, "actor": "Attacker", "action": "Exploit the backend app directly.", "technique": "T1190", "enabled_by": "zt_wl_002", "gain": "Backend compromise."}
+    ],
+    "blast_radius": {
+      "initial_access": "Internet + enumeration.",
+      "max_privilege": "Backend app RCE.",
+      "data_at_risk": ["Backend service data"],
+      "services_at_risk": ["On-prem app behind the relay"]
+    }
+  },
+  {
+    "id": "CHAIN-167",
+    "title": "Notification Hub secret rotation gap",
+    "severity": "LOW",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_int_002", "zt_id_001"],
+    "narrative": "Azure Notification Hubs access keys haven't rotated in 2+ years. Mobile apps still embed the original key. A compromised key lets an attacker push arbitrary notifications to every registered device.",
+    "steps": [
+      {"number": 1, "actor": "Attacker", "action": "Extract key from decompiled mobile app.", "technique": "T1552.001", "enabled_by": "zt_int_002", "gain": "Valid notification key."},
+      {"number": 2, "actor": "Attacker", "action": "Push phishing notifications to every device.", "technique": "T1566", "enabled_by": "zt_id_001", "gain": "Mass-phishing channel."}
+    ],
+    "blast_radius": {
+      "initial_access": "Embedded key.",
+      "max_privilege": "Notification broadcast.",
+      "data_at_risk": ["User trust + device reach"],
+      "services_at_risk": ["Notification Hubs consumers"]
+    }
+  },
+  {
+    "id": "CHAIN-168",
+    "title": "Service Bus topic with over-privileged SAS",
+    "severity": "MEDIUM",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_int_004", "zt_int_002"],
+    "narrative": "A Service Bus topic distributes events to dozens of subscribers. A single SAS with Manage + Send + Listen is used by every producer and consumer. Any compromise grants full control over the topic.",
+    "steps": [
+      {"number": 1, "actor": "Attacker", "action": "Obtain the shared SAS from any one consumer.", "technique": "T1552.001", "enabled_by": "zt_int_004", "gain": "Full topic control."},
+      {"number": 2, "actor": "Attacker", "action": "Delete subscriptions or inject poisoned events.", "technique": "T1565.001", "enabled_by": "zt_int_002", "gain": "Disruption + integrity compromise."}
+    ],
+    "blast_radius": {
+      "initial_access": "Any consumer compromise.",
+      "max_privilege": "Topic administration.",
+      "data_at_risk": ["Topic integrity"],
+      "services_at_risk": ["Every subscriber"]
+    }
+  },
+  {
+    "id": "CHAIN-169",
+    "title": "Event Grid Domain with wildcard subscription filter",
+    "severity": "MEDIUM",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_int_003", "zt_int_006"],
+    "narrative": "An Event Grid Domain has a subscription filter using wildcard * matching. A new event with attacker-controlled fields reaches every subscriber. Combined with a subscriber that trusts field content blindly, this becomes an injection vector.",
+    "steps": [
+      {"number": 1, "actor": "Event publisher", "action": "Publish event with crafted fields.", "technique": "T1565.001", "enabled_by": "zt_int_003", "gain": "Event reaches every subscriber."},
+      {"number": 2, "actor": "Unsafe subscriber", "action": "Interprets attacker-controlled field as command parameter.", "technique": "T1059", "enabled_by": "zt_int_006", "gain": "Code execution in subscriber context."}
+    ],
+    "blast_radius": {
+      "initial_access": "Publish-side compromise.",
+      "max_privilege": "Subscriber-context RCE.",
+      "data_at_risk": ["Subscriber app state"],
+      "services_at_risk": ["All subscribers"]
+    }
+  },
+  {
+    "id": "CHAIN-170",
+    "title": "Event Hub partition key predictable — message replay",
+    "severity": "LOW",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_int_005", "zt_vis_001"],
+    "narrative": "Event Hub is used for audit trail ingestion. Partition keys are simple (user email). An attacker with any SAS can publish arbitrary events to any partition — forging 'audit' entries attributed to any user.",
+    "steps": [
+      {"number": 1, "actor": "Attacker", "action": "Craft forged audit event with victim user's partition key.", "technique": "T1565.001", "enabled_by": "zt_int_005", "gain": "Forged audit entry."},
+      {"number": 2, "actor": "Security team", "action": "Trusts the audit log as-is; investigation misdirected.", "technique": "T1070.001", "enabled_by": "zt_vis_001", "gain": "Misleading forensics."}
+    ],
+    "blast_radius": {
+      "initial_access": "Any SAS on the hub.",
+      "max_privilege": "Audit log forgery.",
+      "data_at_risk": ["Audit integrity"],
+      "services_at_risk": ["SOC / IR pipelines"]
+    }
+  },
+  {
+    "id": "CHAIN-171",
+    "title": "Logic App with OAuth connection to over-privileged SP",
+    "severity": "HIGH",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_int_006", "zt_id_011"],
+    "narrative": "A Logic App uses an OAuth connection that was authorised with Global Admin consent. Every run of the Logic App executes with Global Admin scope — a scheduled trigger becomes a recurring privileged operation nobody audits.",
+    "steps": [
+      {"number": 1, "actor": "Developer misconfig", "action": "Consent to OAuth connection while signed in as Global Admin.", "technique": "T1098", "enabled_by": "zt_int_006", "gain": "Connection carries GA scope indefinitely."},
+      {"number": 2, "actor": "Attacker with Logic App Contributor", "action": "Edit workflow to exfil directory data; run uses GA token.", "technique": "T1078", "enabled_by": "zt_id_011", "gain": "GA-scoped exfil via Logic App."}
+    ],
+    "blast_radius": {
+      "initial_access": "Logic App Contributor.",
+      "max_privilege": "Global Admin via token.",
+      "data_at_risk": ["Tenant-wide data"],
+      "services_at_risk": ["Entra ID via Logic App"]
+    }
+  }
+]

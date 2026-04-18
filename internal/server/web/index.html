@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ARGUS Dashboard</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">A</span>
+      <span class="brand-name">ARGUS</span>
+      <span class="brand-badge">Local dashboard</span>
+    </div>
+    <nav class="tabs">
+      <button class="tab active" data-view="overview">Overview</button>
+      <button class="tab" data-view="findings">Findings</button>
+      <button class="tab" data-view="chains">Chains</button>
+      <button class="tab" data-view="graph">Attack graph</button>
+      <button class="tab" data-view="compliance">Compliance</button>
+      <button class="tab" data-view="drift">Drift</button>
+      <button class="tab" data-view="history">History</button>
+    </nav>
+    <div class="right">
+      <select id="scan-picker" aria-label="Select scan"></select>
+      <button id="trigger-scan-btn" class="btn-primary">Run scan</button>
+    </div>
+  </header>
+
+  <main id="view-root">
+    <section id="view-overview" class="view active">
+      <h1>Overview</h1>
+      <div id="overview-summary" class="summary-grid"></div>
+      <h2>Top critical findings</h2>
+      <div id="overview-critical"></div>
+      <h2>Active attack chains</h2>
+      <div id="overview-chains"></div>
+    </section>
+
+    <section id="view-findings" class="view">
+      <h1>Findings</h1>
+      <div class="filter-row">
+        <input type="search" id="findings-search" placeholder="Search title, rule id, resource…">
+        <select id="findings-severity">
+          <option value="">All severities</option>
+          <option>CRITICAL</option>
+          <option>HIGH</option>
+          <option>MEDIUM</option>
+          <option>LOW</option>
+        </select>
+        <select id="findings-pillar">
+          <option value="">All pillars</option>
+        </select>
+      </div>
+      <table id="findings-table">
+        <thead><tr>
+          <th>Severity</th><th>Rule</th><th>Resource</th><th>Pillar</th><th>Title</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <section id="view-chains" class="view">
+      <h1>Attack chains</h1>
+      <p class="hint">Click a chain for its full narrative and attack walkthrough.</p>
+      <div id="chains-list"></div>
+    </section>
+
+    <section id="view-graph" class="view">
+      <h1>Attack graph</h1>
+      <p class="hint">Nodes = resources / findings. Edges = attack relationships. Click a node for detail.</p>
+      <div id="graph-canvas"></div>
+      <div id="graph-detail" class="detail-panel"></div>
+    </section>
+
+    <section id="view-compliance" class="view">
+      <h1>Compliance posture</h1>
+      <div id="compliance-packs"></div>
+    </section>
+
+    <section id="view-drift" class="view">
+      <h1>Scan-to-scan drift</h1>
+      <div class="filter-row">
+        <label>From <select id="drift-from"></select></label>
+        <label>To <select id="drift-to"></select></label>
+        <button id="drift-run-btn" class="btn-primary">Compare</button>
+      </div>
+      <div id="drift-result"></div>
+    </section>
+
+    <section id="view-history" class="view">
+      <h1>Scan history</h1>
+      <table id="history-table">
+        <thead><tr>
+          <th>Scan time</th><th>Subscription</th><th>Critical</th><th>High</th><th>Medium</th><th>Low</th><th>Chains</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+  </main>
+
+  <div id="toast" class="toast hidden"></div>
+  <dialog id="chain-dialog">
+    <div id="chain-dialog-content"></div>
+    <button onclick="document.getElementById('chain-dialog').close()">Close</button>
+  </dialog>
+  <dialog id="scan-dialog">
+    <h3>Trigger a scan</h3>
+    <p>Runs `argus scan` in the background; results appear in this dashboard when done.</p>
+    <label>Subscription ID <input type="text" id="scan-subscription" placeholder="00000000-0000-0000-0000-000000000000"></label>
+    <label>Tenant ID <input type="text" id="scan-tenant" placeholder="00000000-0000-0000-0000-000000000000"></label>
+    <div class="dialog-actions">
+      <button onclick="document.getElementById('scan-dialog').close()">Cancel</button>
+      <button id="scan-dialog-run" class="btn-primary">Run</button>
+    </div>
+  </dialog>
+
+  <script src="/static/cytoscape.min.js"></script>
+  <script src="/static/app.js"></script>
+</body>
+</html>

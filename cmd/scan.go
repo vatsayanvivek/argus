@@ -45,6 +45,9 @@ var (
 	scanCIChainThreshold int
 	scanCIMinScore      float64
 	scanDiscoverChains   bool
+	scanResume           string
+	scanListResumable    bool
+	scanActivityLogDays  int
 )
 
 // CIGateError is returned when a CI gate check fails. It carries a
@@ -83,10 +86,19 @@ func init() {
 	scanCmd.Flags().IntVar(&scanCIChainThreshold, "ci-chain-threshold", 0, "Fail if CRITICAL chains >= N (0 = fail on any critical chain)")
 	scanCmd.Flags().Float64Var(&scanCIMinScore, "ci-min-score", 0, "Fail if ZT score < N")
 	scanCmd.Flags().BoolVar(&scanDiscoverChains, "discover-chains", true, "Run graph-based pathfinder to surface attack chains missed by the 51 hand-authored patterns (DISC-*)")
-	_ = scanCmd.MarkFlagRequired("tenant")
+	scanCmd.Flags().StringVar(&scanResume, "resume", "", "Resume a partially completed scan by its scan id (see --list-resumable)")
+	scanCmd.Flags().BoolVar(&scanListResumable, "list-resumable", false, "List scan ids that can be resumed and exit")
+	scanCmd.Flags().IntVar(&scanActivityLogDays, "activity-log-days", 30, "Azure Monitor Activity Log lookback window in days (default 30, max 90)")
+	// Tenant is validated in runScan so --list-resumable works without it.
 }
 
 func runScan(cmd *cobra.Command, args []string) error {
+	if scanListResumable {
+		return runListResumable()
+	}
+	if scanTenant == "" {
+		return fmt.Errorf("--tenant is required (or use --list-resumable to inspect saved checkpoints)")
+	}
 	if !scanOrgWide && scanSubscription == "" {
 		return fmt.Errorf("--subscription is required (or use --org-wide to scan every Enabled subscription)")
 	}
@@ -200,6 +212,43 @@ func runSingleSubscriptionScan(
 	if err != nil {
 		return fmt.Errorf("failed to initialize Azure collector: %w", err)
 	}
+	collector = collector.WithActivityLogDays(scanActivityLogDays)
+
+	// Snapshot is declared here so the checkpoint cleanup defer below can
+	// inspect CollectionMode after the collector goroutines finish.
+	var snapshot *models.AzureSnapshot
+
+	// Attach a Checkpointer so sub-collector results survive a crash /
+	// throttle / SIGINT. --resume <id> picks up from the last checkpoint;
+	// without --resume we mint a fresh scan id and clean up after a
+	// successful completion.
+	scanID, err := resolveScanID(scanResume, subscriptionID)
+	if err != nil {
+		return err
+	}
+	checkpointDir, cpErr := checkpointBaseDir()
+	if cpErr != nil {
+		fmt.Fprintf(os.Stderr, "Warning: cannot use scan checkpoints: %v\n", cpErr)
+	} else {
+		cp, cerr := azure.NewCheckpointer(checkpointDir, scanID, subscriptionID, tenantID, version)
+		if cerr != nil {
+			fmt.Fprintf(os.Stderr, "Warning: checkpoint init failed: %v\n", cerr)
+		} else {
+			collector = collector.WithCheckpoint(cp)
+			if scanResume != "" {
+				fmt.Printf("Resuming scan %s (checkpoint at %s)\n", scanID, cp.Dir)
+			} else {
+				fmt.Printf("Scan id: %s (resume with --resume %s)\n", scanID, scanID)
+			}
+			// Remove checkpoint after a clean full collection. Partial
+			// failures keep the dir so the user can --resume.
+			defer func() {
+				if snapshot != nil && snapshot.CollectionMode == "full" {
+					_ = cp.Remove()
+				}
+			}()
+		}
+	}
 
 	// Live per-collector status replaces the old 7-step progress bar
 	// that froze at 14% during the parallel CollectAll phase. Users
@@ -220,7 +269,7 @@ func runSingleSubscriptionScan(
 	)
 
 	// 2-4. Collect everything (one CollectAll runs collectors in parallel)
-	snapshot, err := collector.CollectAllWithProgress(ctx, renderer.OnEvent)
+	snapshot, err = collector.CollectAllWithProgress(ctx, renderer.OnEvent)
 	renderer.Done()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: collection completed with errors: %v\n", err)

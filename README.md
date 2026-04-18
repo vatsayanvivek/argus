@@ -31,7 +31,7 @@
 
 Most Azure security scanners produce a flat list of 200 findings and leave you wondering which ones actually matter. ARGUS reads your full Azure Resource Graph, Entra identity surface, RBAC graph, PIM schedules, and network topology — then **correlates individual misconfigurations into named attack chains a real adversary would exploit**. Instead of "Storage has public blob access + User has no MFA + Key Vault has network rule Allow", you see **CHAIN-019: guest user → stolen session → Key Vault key read → database exfiltration, and the single rule to change that breaks the chain.**
 
-245 policies. 51 hand-authored attack chains. A graph pathfinder that discovers chains nobody wrote down. IaC pre-deployment scanning across Terraform, ARM, Bicep, and ARM what-if. Four compliance packs (SOC 2, HIPAA, PCI DSS 4.0, ISO 27001:2022) with 100% rule-to-control coverage. Zero telemetry, no SaaS, no data ever leaves your laptop.
+245 policies. **200 attack chains** (51 hand-authored + 149 data-driven across Identity, Data, Network, Workload, AI/ML, Integration, Backup, Visibility, DevOps). A graph pathfinder that discovers chains nobody wrote down. IaC pre-deployment scanning across Terraform, ARM, Bicep, and ARM what-if. Four compliance packs (SOC 2, HIPAA, PCI DSS 4.0, ISO 27001:2022) with 100% rule-to-control coverage. A local-only dashboard (`argus serve`). A VSCode extension for inline IaC findings. Zero telemetry, no SaaS, no data ever leaves your laptop.
 
 ---
 
@@ -40,7 +40,15 @@ Most Azure security scanners produce a flat list of 200 findings and leave you w
 | | |
 |---|---|
 | **245 policies** | 91 CIS Azure 2.0 + 154 Zero Trust native rules (identity, data, network, visibility, workload, AI/ML, integration, backup) |
-| **51 attack chains** | Hand-authored patterns with personalised narratives |
+| **200 attack chains** | 51 hand-authored with full narratives + 149 data-driven across every pillar |
+| **`argus serve`** | Local-only dashboard — findings, attack graph viz, compliance, drift, scan history |
+| **`argus explain`** | Terminal-native rule and chain documentation |
+| **`argus diff`** | Scan-to-scan drift diff (added / resolved findings and chains) |
+| **`argus scan --resume`** | Resume a throttled / interrupted scan from its checkpoint |
+| **`argus scan --activity-log-days`** | Configurable Activity Log window (default 30, max 90) |
+| **`argus grant-permissions`** | Built-in service-principal bootstrap — no separate script download |
+| **Attack graph in HTML reports** | Every report embeds an interactive SVG attack graph |
+| **VSCode extension** | Inline IaC findings as you write Bicep / Terraform / ARM |
 | **Graph pathfinder** | Nested groups + Entra directory roles + PIM Eligible/Active + cross-subscription + NSG-derived exposure edges |
 | **245 Terraform types** | azurerm_* resource coverage — more than Checkov |
 | **4 IaC formats** | Terraform plan, ARM template, Bicep-compiled JSON, ARM what-if |
@@ -121,12 +129,86 @@ Reports (`*.html`, `*.json`, `*.sarif`) land in the `argus-output/` folder next 
 - No PATH setup
 - Identical behaviour on Windows / macOS / Linux / any CI runner
 
-### Keeping it updated
+### Package managers (once we publish taps — coming soon)
+
 ```bash
-argus update          # pull latest release, verify SHA-256, swap in place
-argus update --list   # see available versions
-argus update --check  # see latest without installing
+# macOS / Linux via Homebrew tap
+brew tap vatsayanvivek/argus https://github.com/vatsayanvivek/argus
+brew install argus
+
+# Windows via Scoop
+scoop bucket add vatsayanvivek https://github.com/vatsayanvivek/argus
+scoop install argus
+
+# Windows via winget
+winget install VatsayanVivek.Argus
 ```
+
+Manifests live in [`scripts/package-managers/`](scripts/package-managers/) and are regenerated per release by `scripts/package-managers/update-manifests.sh`.
+
+### VSCode extension
+
+Install the **ARGUS IaC Scanner** from the marketplace (or build locally from [`vscode-extension/`](vscode-extension/)). On save, inline diagnostics appear in your `.bicep`, `.tf`, and ARM template JSON files — the extension shells out to your local `argus` binary, so **nothing leaves your machine**.
+
+---
+
+## ⬆️ Updating to a new release
+
+`argus update` is a **self-updater** baked into the binary. It pulls the requested release from GitHub, verifies its SHA-256, and atomically swaps the running exe in place — no admin, no reinstall, works on every platform.
+
+### Update to the latest release
+
+```bash
+argus update
+```
+
+Example output:
+```
+Current version : v1.0.0
+Latest release  : v1.1.1
+Platform        : darwin/arm64
+Downloading https://github.com/vatsayanvivek/argus/releases/download/v1.1.1/argus-darwin-arm64 ...
+SHA-256 verified against SHA256SUMS.
+Replaced /Users/alice/.local/bin/argus with v1.1.1.
+Run: argus --version
+```
+
+### Pin to a specific version (downgrade or lock)
+
+```bash
+argus update --version v1.0.0         # downgrade / pin
+argus update --version v1.1.1 --force # re-install the current version (recover from corruption)
+```
+
+### Check what's available without installing
+
+```bash
+argus update --check   # prints the latest tag and exits
+argus update --list    # lists every release version available on GitHub
+```
+
+### From Docker
+
+Docker users update by pulling the new tag:
+
+```bash
+docker pull ghcr.io/vatsayanvivek/argus:latest     # always-latest
+docker pull ghcr.io/vatsayanvivek/argus:v1.1.1     # pin to a specific version
+```
+
+### From a package manager
+
+```bash
+brew upgrade argus          # Homebrew
+scoop update argus          # Scoop
+winget upgrade VatsayanVivek.Argus
+```
+
+### "I installed v1.0.0 months ago, now v1.1.1 is out — how do I jump?"
+
+Just run `argus update`. It auto-detects your current version, fetches the newest release, SHA-256-verifies it, and does an atomic swap of the running binary. **All local configuration (`.argusignore`, output dirs, scan history) stays intact** — the updater only replaces the executable.
+
+If you want to see what changed between your version and the latest before upgrading, visit the [releases page](https://github.com/vatsayanvivek/argus/releases) — every release has a change summary and the SHA-256 checksums of every artifact.
 
 ---
 
@@ -176,7 +258,7 @@ If any of these fail, the binary you have isn't the one we published. No ambigui
 
 ### Attack-chain analysis (what makes ARGUS different)
 
-- **51 hand-authored attack chains** with personalised narratives ("A guest user from tenant X with the UAA role on your production subscription, combined with your Key Vault's firewall rule allowing Azure Services, lets an attacker...")
+- **200 attack chains** — 51 hand-authored Go builders with full narratives + 149 data-driven JSON specs across Identity / Data / Network / Workload / AI/ML / Integration / Backup / Visibility / DevOps
 - **Graph-based pathfinder** auto-discovers chains nobody wrote down:
   - **Nested group walks**: user → inner group → outer group → role assignment → scope (the #1 way Owner access hides in real environments)
   - **Entra directory roles**: Global Admin / Privileged Role Admin / Application Admin at tenant root, recognised with tenant-takeover weight 10
@@ -211,7 +293,7 @@ If any of these fail, the binary you have isn't the one we published. No ambigui
 - **HIPAA Security Rule** (45 CFR Part 164 Subpart C — Technical + Administrative safeguards)
 - **PCI DSS 4.0** (PCI SSC, Req 1–11 excluding physical)
 - **ISO/IEC 27001:2022** (Annex A organisational + technological controls)
-- **100% rule-to-control coverage**: every one of the 211 rules cites at least one control in each of the 4 frameworks
+- **100% rule-to-control coverage**: every one of the 245 rules cites at least one control in each of the 4 frameworks
 - **Per-framework coverage report** in the JSON output: total controls, covered controls, coverage %, per-control fired rules, worst severity observed
 - **Findings decorated** with the specific control IDs they satisfy — auditor-ready
 
@@ -264,6 +346,284 @@ argus iac whatif.json
 
 ---
 
+## 🧭 Command reference — every command with an example
+
+### `argus scan` — run a full scan
+
+```bash
+# Minimal: one subscription
+argus scan --tenant <tenant-id> --subscription <sub-id>
+
+# Every subscription in the tenant, in parallel
+argus scan --tenant <tenant-id> --org-wide
+
+# Scope by pillar
+argus scan --tenant <id> --subscription <id> --pillar Identity,Network
+
+# Target a specific compliance pack
+argus scan --tenant <id> --subscription <id> --compliance soc2          # SOC 2
+argus scan --tenant <id> --subscription <id> --compliance hipaa         # HIPAA
+argus scan --tenant <id> --subscription <id> --compliance pci-dss-4     # PCI DSS 4.0
+argus scan --tenant <id> --subscription <id> --compliance iso-27001     # ISO 27001
+
+# Output formats
+argus scan --tenant <id> --subscription <id> --output html              # default
+argus scan --tenant <id> --subscription <id> --output json              # machine-readable
+argus scan --tenant <id> --subscription <id> --output sarif             # GitHub code scanning
+argus scan --tenant <id> --subscription <id> --evidence                 # + zipped auditor bundle
+
+# Custom output directory
+argus scan --tenant <id> --subscription <id> --output-dir ./my-reports
+
+# Customise the Activity Log lookback window (default 30, Azure max 90)
+argus scan --tenant <id> --subscription <id> --activity-log-days 7   # recent drift only
+argus scan --tenant <id> --subscription <id> --activity-log-days 90  # full Azure retention
+
+# CI gate mode — exit code 2 on HIGH+ findings or CRITICAL chains
+argus scan --tenant <id> --subscription <id> --ci \
+  --ci-critical-threshold 0 --ci-chain-threshold 0 --ci-min-score 70
+```
+
+### `argus scan --resume` — resume an interrupted scan
+
+Long-running Entra / Graph scans sometimes hit throttling. ARGUS checkpoints each sub-collector on success so you can continue where you left off.
+
+```bash
+# See interrupted scans
+argus scan --list-resumable
+
+# Resume a specific scan id
+argus scan --tenant <id> --subscription <id> --resume scan-20260418T102231Z-a1b2c3-1111
+```
+
+**Example output of `--list-resumable`:**
+```
+SCAN ID                                                 SUBSCRIPTION                          TENANT                                PENDING
+scan-20260418T102231Z-a1b2c3-1111                       11111111-1111-1111-1111-111111111111  aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa  [identity policy] (3m ago)
+
+Resume with:  argus scan --tenant <tenant> --subscription <sub> --resume <scan-id>
+```
+
+Checkpoints live at `~/.argus/scan-state/<scan-id>/` and are cleaned up after a full successful scan.
+
+### `argus explain` — browse rules + chains from the terminal
+
+```bash
+# Full catalog of rules + chains
+argus explain
+
+# A specific rule
+argus explain zt_net_001
+argus explain cis_1_1
+
+# A specific attack chain
+argus explain CHAIN-001
+argus explain CHAIN-200     # newest chain
+```
+
+**Example: `argus explain CHAIN-052`**
+```
+CHAIN-052  Guest user with group-based admin escalation
+────────────────────────────────────────────────────────────────────────
+Severity: HIGH   Likelihood: Medium   Logic: ALL
+
+Why this chain matters
+A guest user is invited to a group that transitively holds a privileged
+Entra directory role. Because group-based role assignments inherit to
+every direct and nested member, the guest gains tenant-wide privilege
+the moment the invitation is accepted...
+
+Trigger rules
+  • zt_id_023
+  • zt_id_024
+
+Attack walkthrough
+  Step 1. Accept an invitation for a guest user into the home tenant.
+    actor: External tenant admin
+    MITRE: T1078.004
+    enabled by: zt_id_023
+    gain: Guest foothold in the target tenant.
+  ...
+
+Blast radius
+  Initial access    Guest invitation accepted.
+  Max privilege     Entra directory admin role (User Admin, Application Admin, etc.).
+  Data at risk      Directory data, App secrets, Email / Teams via consent exploitation
+```
+
+### `argus diff` — scan-to-scan drift
+
+```bash
+# Human-readable drift between two scan JSONs
+argus diff --from ./argus-output/argus_20260401_100000.json \
+           --to   ./argus-output/argus_20260418_100000.json
+
+# Machine-readable
+argus diff --from older.json --to newer.json --json
+```
+
+**Example output:**
+```
+Comparing:
+  from  argus_20260401_100000.json
+  to    argus_20260418_100000.json
+
+Added findings: 1
+  + ●  zt_vis_003          VirtualMachines  Defender Free tier
+
+Resolved findings: 2
+  - ●  zt_data_001         public-sa  Public blob
+  - ●  zt_id_001           svc-sp     SP never expires
+
+Added chains:    CHAIN-008
+Resolved chains: CHAIN-001
+```
+
+### `argus serve` — local-only dashboard
+
+Opens a web UI on loopback at `http://localhost:8080`. **Nothing leaves your machine.**
+
+```bash
+argus serve                                   # default: 127.0.0.1:8080
+argus serve --addr :9000                      # custom port
+argus serve --scan-dir ./my-reports           # point at a custom output dir
+argus serve --addr 0.0.0.0:8080               # bind to all interfaces (use with care)
+```
+
+Views: Overview, Findings (filter / sort), Chains (drill-down narrative), Attack graph (interactive SVG), Compliance posture, Drift diff, Scan history. A **Run scan** button triggers `argus scan` in the background.
+
+### `argus iac` — pre-deployment IaC scan (no Azure needed)
+
+```bash
+# Terraform plan
+terraform show -json plan.out > plan.json
+argus iac plan.json
+
+# ARM template
+argus iac template.json
+
+# Bicep (compile first)
+bicep build main.bicep
+argus iac main.json
+
+# ARM what-if (effective post-deploy state)
+az deployment group what-if --output json --resource-group rg --template-file main.bicep > whatif.json
+argus iac whatif.json
+
+# CI gate on IaC
+argus iac plan.json --fail-on HIGH
+```
+
+### `argus check-permissions` — preflight Graph + ARM scopes
+
+```bash
+argus check-permissions --tenant <id>                 # human-readable
+argus check-permissions --tenant <id> --json          # for CI
+```
+
+Probes every Microsoft Graph + ARM endpoint ARGUS will use and reports exactly which scopes are missing. Fix them before scanning.
+
+### `argus grant-permissions` — bootstrap the service principal (no separate script)
+
+If you installed via `brew` / `scoop` / `winget` / EXE, the helper shell scripts aren't in your filesystem — but the binary has them embedded. This subcommand extracts the right one for your shell and runs it.
+
+```bash
+argus grant-permissions --subscription <id> --tenant <id>
+argus grant-permissions --subscription <id> --tenant <id> --name my-argus-sp
+argus grant-permissions --subscription <id> --tenant <id> --dry-run    # preview, don't run
+```
+
+**Up-front transparency:** the command prints every Azure RBAC role and every Microsoft Graph application permission it's about to request, with a short reason for each, **before** calling `az`:
+
+```
+ARGUS grant-permissions  creating service principal argus-scanner
+  subscription : 00000000-0000-0000-0000-000000000001
+  tenant       : aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa
+  shell        : bash
+
+Azure RBAC roles (subscription scope):
+  • Reader           — read every resource for posture analysis
+  • Security Reader  — read Defender for Cloud findings + secure score
+
+Microsoft Graph application permissions:
+  • Directory.Read.All                   — Read users, groups, service principals for every identity rule
+  • Application.Read.All                 — Detect App Registration takeover chains (CHAIN-002)
+  • Policy.Read.All                      — Enumerate Conditional Access + Authentication policies
+  • RoleManagement.Read.Directory        — Read Entra directory role assignments + PIM schedules
+  • AccessReview.Read.All                — Verify access reviews exist for privileged roles
+  • AuditLog.Read.All                    — Read sign-in + audit logs for stale-account detection
+  • Group.Read.All                       — Walk nested group membership for privilege-path analysis
+  • GroupMember.Read.All                 — Transitive member expansion — the #1 way Owner access hides
+```
+
+Prerequisites: `az` on PATH, logged in as Global Admin or Privileged Role Admin (so admin consent can be granted). `bash` systems also need `jq`. Idempotent — safe to re-run.
+
+### `argus install` — one-shot self-installer
+
+```bash
+./argus-linux-amd64 install                 # downloads binary, puts it on PATH
+argus install --force                       # re-run to refresh
+```
+
+Puts the binary in `~/.local/bin/argus` (Unix) or `%LOCALAPPDATA%\Programs\argus\argus.exe` (Windows) and patches PATH. No admin needed.
+
+### `argus update` — self-updater (see Updating section above for every flag)
+
+```bash
+argus update                  # latest
+argus update --version v1.0.0 # specific release
+argus update --list           # available versions
+argus update --check          # what's latest, don't install
+```
+
+### `argus monitor` — continuous scanning daemon
+
+```bash
+argus monitor --tenant <id> --subscription <id> --interval 1h
+argus monitor --tenant <id> --subscription <id> --webhook https://hooks.slack.com/...
+```
+
+### `argus trend` — score trend over time
+
+```bash
+argus trend --subscription <id>           # ASCII chart of recent scans
+argus trend --subscription <id> --since 30d
+```
+
+### `argus rules list` — browse the rule library offline
+
+```bash
+argus rules list                          # every rule, grouped
+argus rules list --pillar Network         # just network rules
+argus rules list --source zt              # just Zero Trust rules
+argus rules list --compliance soc2        # just SOC 2-mapped rules
+```
+
+### `argus suppress` — add a rule suppression
+
+```bash
+argus suppress zt_net_001 --resource /subs/xxx/nsg/mgmt --reason "Approved mgmt jump box" --until 2026-06-30
+```
+
+Writes to `.argusignore`; respected by every future scan.
+
+### `argus score` — silent single-line score
+
+```bash
+argus score --tenant <id> --subscription <id>
+# → 62/100 · Grade D
+```
+
+### `argus server` — long-running HTTP API (different from `argus serve`)
+
+```bash
+argus server --addr :9090 --api-key $API_KEY
+```
+
+Multi-scan REST API for integration into other tools. Contrast with `argus serve` which is a UI-only local dashboard.
+
+---
+
 ## 📊 How ARGUS compares
 
 | | ARGUS | Checkov | Wiz | Defender for Cloud |
@@ -272,7 +632,7 @@ argus iac whatif.json
 | **Cost** | Free | Free | $$$ | Pay-per-resource |
 | **Runs where?** | Your laptop / CI / Docker | Your laptop / CI | SaaS | Azure-only |
 | **Data leaves your env?** | **No** | No | Yes (SaaS) | Yes (Microsoft) |
-| **Attack-chain correlation** | ✅ 51 hand-authored + graph pathfinder | ❌ | ✅ | ⚠️ Partial |
+| **Attack-chain correlation** | ✅ **200** (51 hand-authored + 149 data-driven) + graph pathfinder | ❌ | ✅ | ⚠️ Partial |
 | **Cross-subscription paths** | ✅ | ❌ | ✅ | ❌ |
 | **Nested group pathfinding** | ✅ | ❌ | ✅ | ❌ |
 | **PIM Eligible/Active distinction** | ✅ | ❌ | ⚠️ Partial | ❌ |
@@ -297,7 +657,7 @@ argus iac whatif.json
 │  ┌───────────────┐  ┌───────────────┐  ┌────────────────┐    │
 │  │   Collector   │  │  OPA engine   │  │   Correlator   │    │
 │  │               │  │               │  │                │    │
-│  │ Resource      │  │ 211 Rego      │  │ 51 chain       │    │
+│  │ Resource      │  │ 245 Rego      │  │ 200 chain      │    │
 │  │  Graph (ARM)  │→→│  policies     │→→│  patterns      │    │
 │  │ Graph API     │  │               │  │                │    │
 │  │ Defender      │  │ SOC2/HIPAA/   │  │ Graph          │    │
@@ -638,6 +998,7 @@ Bug reports and feature requests via GitHub Issues are welcome.
 
 ## 🔗 Quick links
 
+- **Docs site (rule + chain catalog)**: https://vatsayanvivek.github.io/argus/
 - **Releases**: https://github.com/vatsayanvivek/argus/releases
 - **Docker image**: https://ghcr.io/vatsayanvivek/argus
 - **SBOMs (every release)**: attached as `argus-<platform>.sbom.spdx.json` to each release

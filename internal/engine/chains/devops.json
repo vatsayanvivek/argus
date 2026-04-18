@@ -1,0 +1,173 @@
+[
+  {
+    "id": "CHAIN-192",
+    "title": "ACR admin user + pipeline credential sprawl",
+    "severity": "HIGH",
+    "likelihood": "High",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_wl_018", "zt_wl_019"],
+    "narrative": "Azure Container Registry has admin user enabled and the single shared credential is referenced in 15+ pipeline definitions across Azure DevOps / GitHub Actions. A leak in any one pipeline leaks registry-wide push access.",
+    "steps": [
+      {"number": 1, "actor": "Attacker", "action": "Obtain the admin password from a leaked pipeline log.", "technique": "T1552.001", "enabled_by": "zt_wl_018", "gain": "Registry push rights."},
+      {"number": 2, "actor": "Attacker", "action": "Push malicious images under common 'latest' tags; consumers pull.", "technique": "T1195.002", "enabled_by": "zt_wl_019", "gain": "Fleet-wide supply-chain compromise."}
+    ],
+    "blast_radius": {
+      "initial_access": "Pipeline log leak.",
+      "max_privilege": "Registry push.",
+      "data_at_risk": ["Every consumer's runtime"],
+      "services_at_risk": ["AKS / Container Apps / Functions"]
+    }
+  },
+  {
+    "id": "CHAIN-193",
+    "title": "Terraform state in storage account with public access",
+    "severity": "CRITICAL",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_data_001", "zt_id_003"],
+    "narrative": "Terraform state is stored in a blob container with allowBlobPublicAccess=true. The state file contains every resource ID, every parameter, and often plaintext secrets that Terraform had to 'see' during apply. Anyone with the URL has the entire infrastructure spec.",
+    "steps": [
+      {"number": 1, "actor": "Attacker", "action": "Discover public Terraform state; download state file.", "technique": "T1213", "enabled_by": "zt_data_001", "gain": "Complete infra inventory + embedded secrets."},
+      {"number": 2, "actor": "Attacker", "action": "Use harvested secrets to pivot to every named resource.", "technique": "T1078", "enabled_by": "zt_id_003", "gain": "Cross-resource takeover."}
+    ],
+    "blast_radius": {
+      "initial_access": "Public state URL.",
+      "max_privilege": "Whatever the embedded secrets unlock.",
+      "data_at_risk": ["Entire deployed stack"],
+      "services_at_risk": ["Every resource in state"]
+    }
+  },
+  {
+    "id": "CHAIN-194",
+    "title": "CI/CD service principal with sub-wide Contributor",
+    "severity": "CRITICAL",
+    "likelihood": "High",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_id_008", "zt_id_001"],
+    "narrative": "The CI/CD deployment SP holds Contributor at subscription scope AND its secret is static. Any PR-triggered workflow has the ability to read/write any resource in the subscription — a malicious PR becomes a subscription takeover.",
+    "steps": [
+      {"number": 1, "actor": "Attacker", "action": "Open a PR that modifies workflow to run attacker code.", "technique": "T1195.002", "enabled_by": "zt_id_008", "gain": "Code execution with SP credential."},
+      {"number": 2, "actor": "Attacker", "action": "SP has Contributor on entire subscription; exfiltrate.", "technique": "T1078", "enabled_by": "zt_id_001", "gain": "Subscription-wide access."}
+    ],
+    "blast_radius": {
+      "initial_access": "Any PR to CI repo.",
+      "max_privilege": "Subscription Contributor.",
+      "data_at_risk": ["Every resource in the subscription"],
+      "services_at_risk": ["Azure RBAC"]
+    }
+  },
+  {
+    "id": "CHAIN-195",
+    "title": "GitHub Actions OIDC federation over-scoped",
+    "severity": "HIGH",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_id_011", "zt_id_008"],
+    "narrative": "A federated credential trusts any GitHub workflow in any repository under an organisation — the subject claim is too broad. Any repo in the org can assume the identity. A compromised developer's fork becomes cloud-credentialed code execution.",
+    "steps": [
+      {"number": 1, "actor": "Attacker", "action": "Push malicious workflow to a fork in the org.", "technique": "T1195.002", "enabled_by": "zt_id_011", "gain": "Workflow assumes federated identity."},
+      {"number": 2, "actor": "Attacker", "action": "Use identity's Azure RBAC to exfiltrate.", "technique": "T1078", "enabled_by": "zt_id_008", "gain": "Cloud compromise from fork."}
+    ],
+    "blast_radius": {
+      "initial_access": "Any fork in the org.",
+      "max_privilege": "Federated identity's RBAC.",
+      "data_at_risk": ["Azure resources under that identity"],
+      "services_at_risk": ["Azure RBAC via OIDC"]
+    }
+  },
+  {
+    "id": "CHAIN-196",
+    "title": "Azure DevOps PAT with full access + sprawled",
+    "severity": "HIGH",
+    "likelihood": "High",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_id_022", "zt_id_001"],
+    "narrative": "An Azure DevOps PAT is created with Full Access (every scope) and an expiration of 1 year. Developers share it across pipelines, local scripts, and browsers. Any leak is a year-long backdoor to Azure DevOps Repos, Pipelines, and Variable Groups.",
+    "steps": [
+      {"number": 1, "actor": "Attacker", "action": "Harvest the PAT from a dotfile or build log.", "technique": "T1552.001", "enabled_by": "zt_id_022", "gain": "Full-access PAT."},
+      {"number": 2, "actor": "Attacker", "action": "Read secrets from variable groups; push malicious commits; trigger pipelines.", "technique": "T1078", "enabled_by": "zt_id_001", "gain": "Full DevOps project control."}
+    ],
+    "blast_radius": {
+      "initial_access": "Leaked PAT.",
+      "max_privilege": "Azure DevOps organisation-wide.",
+      "data_at_risk": ["Source code", "Pipeline secrets", "Build artifacts"],
+      "services_at_risk": ["Azure DevOps"]
+    }
+  },
+  {
+    "id": "CHAIN-197",
+    "title": "Deployment workflow without branch protection",
+    "severity": "HIGH",
+    "likelihood": "High",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_id_003", "zt_vis_001"],
+    "narrative": "The main branch that deploys to prod has no branch protection — direct pushes allowed, no reviewer required, no status check required. A single compromised dev account can push directly to main and deploy malicious code to prod.",
+    "steps": [
+      {"number": 1, "actor": "Attacker with dev creds", "action": "git push origin main with backdoor code.", "technique": "T1195.002", "enabled_by": "zt_id_003", "gain": "Backdoor code in main branch."},
+      {"number": 2, "actor": "CI", "action": "Deploy triggered automatically; backdoor in prod.", "technique": "T1554", "enabled_by": "zt_vis_001", "gain": "Production compromise."}
+    ],
+    "blast_radius": {
+      "initial_access": "Any developer credential.",
+      "max_privilege": "Production deployment.",
+      "data_at_risk": ["Prod workload integrity"],
+      "services_at_risk": ["Any service deployed from main"]
+    }
+  },
+  {
+    "id": "CHAIN-198",
+    "title": "Deployment slots without configuration isolation",
+    "severity": "MEDIUM",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_wl_017", "zt_wl_028"],
+    "narrative": "App Service deployment slots are used for blue-green deploys but app settings are NOT marked slot-specific. A dev staging slot reads prod connection strings. Any vulnerability on the staging slot has prod data at hand.",
+    "steps": [
+      {"number": 1, "actor": "Attacker", "action": "Exploit staging slot which has weaker controls.", "technique": "T1190", "enabled_by": "zt_wl_017", "gain": "Staging slot compromise."},
+      {"number": 2, "actor": "Attacker", "action": "Read app settings; includes prod DB string.", "technique": "T1552.001", "enabled_by": "zt_wl_028", "gain": "Prod data access from staging foothold."}
+    ],
+    "blast_radius": {
+      "initial_access": "Staging slot vuln.",
+      "max_privilege": "Prod backend reachability.",
+      "data_at_risk": ["Prod database"],
+      "services_at_risk": ["Prod app data"]
+    }
+  },
+  {
+    "id": "CHAIN-199",
+    "title": "Bicep / ARM template storing secret as parameter",
+    "severity": "MEDIUM",
+    "likelihood": "High",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_id_001", "zt_vis_008"],
+    "narrative": "An ARM / Bicep template accepts a storage account key as a plain parameter. Deployment logs in Activity Log record the parameter in cleartext. Anyone with Activity Log reader for 90 days can harvest secrets from past deployments.",
+    "steps": [
+      {"number": 1, "actor": "Deployment", "action": "Parameter 'storageKey' passed in clear to ARM.", "technique": "T1078", "enabled_by": "zt_id_001", "gain": "Secret written to Activity Log."},
+      {"number": 2, "actor": "Attacker with reader", "action": "Query Activity Log deployments; extract parameter values.", "technique": "T1213", "enabled_by": "zt_vis_008", "gain": "Historical secret harvest."}
+    ],
+    "blast_radius": {
+      "initial_access": "Activity Log read.",
+      "max_privilege": "Every secret ever deployed.",
+      "data_at_risk": ["All deployment-time secrets"],
+      "services_at_risk": ["Storage / SQL / whatever secrets referenced"]
+    }
+  },
+  {
+    "id": "CHAIN-200",
+    "title": "Azure DevOps variable group with unencrypted secret + no approval",
+    "severity": "HIGH",
+    "likelihood": "High",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_wl_017", "zt_id_019"],
+    "narrative": "An Azure DevOps variable group stores production secrets as plain (not locked) variables. Any user with contributor on the project reads them. There is no approval workflow to access the production variable group.",
+    "steps": [
+      {"number": 1, "actor": "Project contributor", "action": "View variable group values in the portal.", "technique": "T1552.001", "enabled_by": "zt_wl_017", "gain": "Production secrets."},
+      {"number": 2, "actor": "Attacker", "action": "Authenticate with stolen secrets to backend systems.", "technique": "T1078", "enabled_by": "zt_id_019", "gain": "Cross-system compromise."}
+    ],
+    "blast_radius": {
+      "initial_access": "Azure DevOps contributor.",
+      "max_privilege": "Whatever secrets unlock.",
+      "data_at_risk": ["Any backend the secrets reach"],
+      "services_at_risk": ["Every system referenced in the variable group"]
+    }
+  }
+]

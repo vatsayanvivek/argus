@@ -1,0 +1,481 @@
+[
+  {
+    "id": "CHAIN-052",
+    "title": "Guest user with group-based admin escalation",
+    "severity": "HIGH",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_id_023", "zt_id_024"],
+    "narrative": "A guest user is invited to a group that transitively holds a privileged Entra directory role. Because group-based role assignments inherit to every direct and nested member, the guest gains tenant-wide privilege the moment the invitation is accepted. Cross-tenant access policies that don't restrict what external users can do compound this.",
+    "steps": [
+      {"number": 1, "actor": "External tenant admin", "action": "Accept an invitation for a guest user into the home tenant.", "technique": "T1078.004", "enabled_by": "zt_id_023", "gain": "Guest foothold in the target tenant."},
+      {"number": 2, "actor": "Guest user", "action": "Enumerate groups and discover one that holds User Administrator or similar via nested membership.", "technique": "T1087.004", "enabled_by": "zt_id_024", "gain": "Privileged directory role by transitive inheritance."},
+      {"number": 3, "actor": "Guest with role", "action": "Create new users, reset passwords, or grant Application.ReadWrite.All to a controlled app.", "technique": "T1098", "enabled_by": "zt_id_024", "gain": "Persistent, tenant-wide admin control."}
+    ],
+    "blast_radius": {
+      "initial_access": "Guest invitation accepted.",
+      "max_privilege": "Entra directory admin role (User Admin, Application Admin, etc.).",
+      "data_at_risk": ["Directory data", "App secrets", "Email / Teams via consent exploitation"],
+      "services_at_risk": ["Entra ID", "Microsoft Graph"]
+    }
+  },
+  {
+    "id": "CHAIN-053",
+    "title": "Legacy authentication bypass of Conditional Access",
+    "severity": "CRITICAL",
+    "likelihood": "High",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_id_004", "zt_id_007"],
+    "narrative": "Tenant allows legacy authentication protocols (IMAP, POP, SMTP AUTH, older EWS) that do not support interactive MFA. Conditional Access policies built for modern auth do not apply to these flows. An attacker who obtains any password hash or sprays a weak password logs in with no MFA prompt.",
+    "steps": [
+      {"number": 1, "actor": "Attacker", "action": "Password-spray known user principal names against the legacy auth endpoint.", "technique": "T1110.003", "enabled_by": "zt_id_004", "gain": "Valid password for a real account."},
+      {"number": 2, "actor": "Attacker", "action": "Authenticate via IMAP / SMTP AUTH which ignores the modern-auth Conditional Access policy.", "technique": "T1556.007", "enabled_by": "zt_id_007", "gain": "Authenticated mailbox session without MFA challenge."}
+    ],
+    "blast_radius": {
+      "initial_access": "Corporate credentials compromised.",
+      "max_privilege": "Mailbox access; lateral-phishing potential.",
+      "data_at_risk": ["Email", "Attachments", "OAuth consent grants granted from mailbox links"],
+      "services_at_risk": ["Exchange Online", "SharePoint", "Any app the user can consent to"]
+    }
+  },
+  {
+    "id": "CHAIN-054",
+    "title": "PIM eligible role activated without approval gate",
+    "severity": "HIGH",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_id_009", "zt_id_010"],
+    "narrative": "A high-privilege role (Global Admin, User Access Admin) is assigned Eligible via PIM but the activation policy requires neither an approver nor justification. Any identity that compromises the eligible principal's creds can self-activate to full admin with zero friction.",
+    "steps": [
+      {"number": 1, "actor": "Attacker with creds", "action": "Sign in as the eligible principal.", "technique": "T1078", "enabled_by": "zt_id_009", "gain": "Base user session."},
+      {"number": 2, "actor": "Attacker", "action": "POST /activate to PIM with any excuse text; activation completes without approver review.", "technique": "T1098.003", "enabled_by": "zt_id_010", "gain": "Active tenant-admin role for the full activation window."}
+    ],
+    "blast_radius": {
+      "initial_access": "Stolen credentials of an eligible role-holder.",
+      "max_privilege": "Whatever the eligible role grants — often Global Admin.",
+      "data_at_risk": ["Directory data", "All Azure resources under tenant"],
+      "services_at_risk": ["Entra ID", "Azure RBAC at root MG"]
+    }
+  },
+  {
+    "id": "CHAIN-055",
+    "title": "Consent phishing via pre-authorized multi-tenant app",
+    "severity": "HIGH",
+    "likelihood": "High",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_id_013", "zt_id_014"],
+    "narrative": "User consent to third-party apps is allowed tenant-wide without admin approval. An attacker registers a multi-tenant app requesting Mail.Read and Files.Read.All and sends phishing links. A single click grants the attacker's app persistent OAuth tokens — far more durable than a stolen password because tokens survive password resets.",
+    "steps": [
+      {"number": 1, "actor": "Attacker", "action": "Register a multi-tenant Entra app with privileged delegated scopes.", "technique": "T1078", "enabled_by": "zt_id_013", "gain": "App artifact ready to request consent."},
+      {"number": 2, "actor": "Attacker", "action": "Send phishing URL with /adminconsent or /authorize?prompt=consent.", "technique": "T1566.002", "enabled_by": "zt_id_014", "gain": "Target clicks and grants consent."},
+      {"number": 3, "actor": "Attacker", "action": "Use the refresh token to read mail, OneDrive, Teams messages for months.", "technique": "T1552.005", "enabled_by": "zt_id_014", "gain": "Long-lived data access that survives password reset."}
+    ],
+    "blast_radius": {
+      "initial_access": "Single user click.",
+      "max_privilege": "Delegated scope — typically Mail.Read, Files.Read.All, User.Read.",
+      "data_at_risk": ["Mailbox", "OneDrive", "Teams chats", "Consented OAuth tokens"],
+      "services_at_risk": ["Microsoft 365 apps this user accesses"]
+    }
+  },
+  {
+    "id": "CHAIN-056",
+    "title": "Inactive privileged account with stale credentials",
+    "severity": "HIGH",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_id_006", "zt_id_026"],
+    "narrative": "A user account with an admin role has not signed in for 180+ days and still has an active password credential. Unused admin accounts are a favorite target — nobody notices anomalous activity, MFA prompts go to a forgotten device, and credentials are often recycled from breach corpora.",
+    "steps": [
+      {"number": 1, "actor": "Attacker", "action": "Match an inactive admin UPN against breached-credential dumps.", "technique": "T1589.001", "enabled_by": "zt_id_006", "gain": "Credential pair for a dormant admin account."},
+      {"number": 2, "actor": "Attacker", "action": "Authenticate; because the account is idle, no user notices the sign-in log.", "technique": "T1078", "enabled_by": "zt_id_026", "gain": "Active admin session."}
+    ],
+    "blast_radius": {
+      "initial_access": "Breached credential + dormant account.",
+      "max_privilege": "Whatever role the dormant account holds.",
+      "data_at_risk": ["Entra directory", "RBAC assignments", "Anything that admin role grants"],
+      "services_at_risk": ["Entra ID", "Azure RBAC"]
+    }
+  },
+  {
+    "id": "CHAIN-057",
+    "title": "Break-glass account without MFA or monitoring",
+    "severity": "CRITICAL",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_id_005", "zt_vis_008"],
+    "narrative": "A break-glass Global Admin is excluded from every Conditional Access policy by design — but it is also excluded from sign-in monitoring alerts. The account credentials live in a shared password manager. Any insider with manager access can sign in silently.",
+    "steps": [
+      {"number": 1, "actor": "Insider", "action": "Pull the break-glass password from the shared vault.", "technique": "T1078.002", "enabled_by": "zt_id_005", "gain": "Admin credential."},
+      {"number": 2, "actor": "Insider", "action": "Sign in from anywhere; no CA policy blocks, no alert fires.", "technique": "T1078", "enabled_by": "zt_vis_008", "gain": "Silent Global Admin session."}
+    ],
+    "blast_radius": {
+      "initial_access": "Insider with vault read.",
+      "max_privilege": "Global Administrator.",
+      "data_at_risk": ["Entire tenant + every subscription"],
+      "services_at_risk": ["All of Azure + Microsoft 365"]
+    }
+  },
+  {
+    "id": "CHAIN-058",
+    "title": "Service principal with privileged Graph role + no cred rotation",
+    "severity": "CRITICAL",
+    "likelihood": "High",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_id_001", "zt_id_011"],
+    "narrative": "A service principal holds a dangerous Microsoft Graph application permission (Directory.ReadWrite.All, AppRoleAssignment.ReadWrite.All) and its client secret never expires. Any exposure of that secret — CI log leak, GitHub push, developer laptop exfil — is a permanent tenant backdoor.",
+    "steps": [
+      {"number": 1, "actor": "Attacker", "action": "Grep GitHub / Postman / CI logs for the client secret.", "technique": "T1552.001", "enabled_by": "zt_id_001", "gain": "Valid SP credential."},
+      {"number": 2, "actor": "Attacker", "action": "Mint a Graph token and call directoryRoles to grant itself Global Admin.", "technique": "T1098", "enabled_by": "zt_id_011", "gain": "Global Admin via application permission."}
+    ],
+    "blast_radius": {
+      "initial_access": "Any secret leak.",
+      "max_privilege": "Global Admin via self-promotion.",
+      "data_at_risk": ["Directory", "All app secrets", "All mailboxes"],
+      "services_at_risk": ["Entra ID", "Graph", "All M365"]
+    }
+  },
+  {
+    "id": "CHAIN-059",
+    "title": "Conditional Access gap on partner-tenant guest admin",
+    "severity": "HIGH",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_id_023", "zt_id_021"],
+    "narrative": "A B2B guest admin from a partner tenant is granted directory roles in the home tenant, but the home Conditional Access policies only target the home UPN suffix. The partner's admin authenticates under their own tenant with its own MFA story, and the home tenant has no visibility into whether that MFA is strong.",
+    "steps": [
+      {"number": 1, "actor": "Partner tenant attacker", "action": "Compromise a partner admin account (weak MFA at partner side).", "technique": "T1078.004", "enabled_by": "zt_id_023", "gain": "Partner credential."},
+      {"number": 2, "actor": "Partner attacker", "action": "Cross-tenant access to home; CA doesn't apply.", "technique": "T1556.007", "enabled_by": "zt_id_021", "gain": "Home tenant admin role via partner auth."}
+    ],
+    "blast_radius": {
+      "initial_access": "Partner tenant compromise.",
+      "max_privilege": "Whatever directory role the guest holds.",
+      "data_at_risk": ["Directory objects visible to guest role"],
+      "services_at_risk": ["Entra ID cross-tenant surface"]
+    }
+  },
+  {
+    "id": "CHAIN-060",
+    "title": "Managed identity with excessive subscription-scope role",
+    "severity": "HIGH",
+    "likelihood": "High",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_id_008", "zt_id_003"],
+    "narrative": "A resource's managed identity is assigned Contributor or higher at subscription scope. Any code execution on that resource (IMDS token) yields subscription-wide privilege. This is the bread-and-butter Azure privilege-escalation chain.",
+    "steps": [
+      {"number": 1, "actor": "Attacker on resource", "action": "curl the IMDS endpoint for a token scoped to management.azure.com.", "technique": "T1552.005", "enabled_by": "zt_id_008", "gain": "ARM token for the managed identity."},
+      {"number": 2, "actor": "Attacker", "action": "Enumerate role assignments; identity holds Contributor on /subscriptions/<id>.", "technique": "T1087.004", "enabled_by": "zt_id_003", "gain": "Confirmed subscription-scope privilege."},
+      {"number": 3, "actor": "Attacker", "action": "Create new role assignment, new storage with anon access, exfiltrate VM disks.", "technique": "T1098", "enabled_by": "zt_id_003", "gain": "Subscription takeover."}
+    ],
+    "blast_radius": {
+      "initial_access": "Any RCE on the resource.",
+      "max_privilege": "Subscription Contributor / Owner.",
+      "data_at_risk": ["Every resource in the subscription"],
+      "services_at_risk": ["Azure RBAC subscription-wide"]
+    }
+  },
+  {
+    "id": "CHAIN-061",
+    "title": "Unmonitored directory role change",
+    "severity": "HIGH",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_vis_021", "zt_vis_008"],
+    "narrative": "No Activity Log alert is configured for role assignment changes AND Entra audit logs are not streamed to a SIEM. An attacker who gains Global Admin (via any other chain) can create a new admin, delete logs, and exit without leaving a correlatable trail.",
+    "steps": [
+      {"number": 1, "actor": "Attacker-admin", "action": "Create a second Global Admin account as persistence.", "technique": "T1098", "enabled_by": "zt_vis_021", "gain": "Second admin account with no alert fired."},
+      {"number": 2, "actor": "Attacker-admin", "action": "Lower audit log retention or filter to hide the change.", "technique": "T1070.001", "enabled_by": "zt_vis_008", "gain": "Forensic trail gap."}
+    ],
+    "blast_radius": {
+      "initial_access": "Assumes prior admin escalation.",
+      "max_privilege": "Persistence across password reset.",
+      "data_at_risk": ["Directory", "Audit integrity"],
+      "services_at_risk": ["Entra ID"]
+    }
+  },
+  {
+    "id": "CHAIN-062",
+    "title": "Group owner can escalate by adding self to privileged group",
+    "severity": "HIGH",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_id_024", "zt_id_016"],
+    "narrative": "A non-admin user is set as owner of a group that holds a privileged role via role assignment. Group owners can add members, including themselves. No IAM separation-of-duties control stops this.",
+    "steps": [
+      {"number": 1, "actor": "Group owner", "action": "Use MS Graph PATCH /groups/<id>/members to add own user object.", "technique": "T1098", "enabled_by": "zt_id_024", "gain": "Self-promoted to privileged group."},
+      {"number": 2, "actor": "New group member", "action": "Inherit the group's role; sign in to admin endpoints.", "technique": "T1078.004", "enabled_by": "zt_id_016", "gain": "Directory role via group membership."}
+    ],
+    "blast_radius": {
+      "initial_access": "Group owner role only.",
+      "max_privilege": "Whatever role the group carries.",
+      "data_at_risk": ["Directory scope of inherited role"],
+      "services_at_risk": ["Entra ID"]
+    }
+  },
+  {
+    "id": "CHAIN-063",
+    "title": "Dynamic group rule misconfig grants role to unintended users",
+    "severity": "MEDIUM",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_id_024", "zt_id_025"],
+    "narrative": "A dynamic group rule (e.g. department = 'engineering') grants membership based on a user attribute. An attacker with User Admin or attribute-edit rights modifies a user's department to match, auto-joining them to the group — and inheriting whatever role the group holds.",
+    "steps": [
+      {"number": 1, "actor": "Attacker with User Admin", "action": "Edit a principal's department attribute to trigger the dynamic rule.", "technique": "T1098", "enabled_by": "zt_id_025", "gain": "Auto-membership in privileged dynamic group."},
+      {"number": 2, "actor": "Attacker principal", "action": "Sign in; role inherited via dynamic group.", "technique": "T1078", "enabled_by": "zt_id_024", "gain": "Role granted through attribute-driven flow."}
+    ],
+    "blast_radius": {
+      "initial_access": "User Admin.",
+      "max_privilege": "Dynamic group's inherited role.",
+      "data_at_risk": ["Whatever the role grants"],
+      "services_at_risk": ["Entra ID dynamic groups"]
+    }
+  },
+  {
+    "id": "CHAIN-064",
+    "title": "On-prem sync admin compromises cloud",
+    "severity": "CRITICAL",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_id_017", "zt_id_018"],
+    "narrative": "Entra Connect server holds a synchronization account that can write to the directory. The server is domain-joined and shares local admins with other workstations. Compromise the workstation → dump LSASS → own the sync account → write to Entra directly.",
+    "steps": [
+      {"number": 1, "actor": "Attacker on workstation", "action": "Run Mimikatz to extract cached credentials of a shared local admin.", "technique": "T1003.001", "enabled_by": "zt_id_017", "gain": "Sync-server local admin credential."},
+      {"number": 2, "actor": "Attacker on Connect server", "action": "Impersonate sync account; write directly to Entra via MSOL account token.", "technique": "T1098", "enabled_by": "zt_id_018", "gain": "Directory write access bypassing Conditional Access."}
+    ],
+    "blast_radius": {
+      "initial_access": "Compromised on-prem workstation.",
+      "max_privilege": "Directory write — equivalent to tenant admin.",
+      "data_at_risk": ["Entire hybrid directory"],
+      "services_at_risk": ["Entra Connect + Entra ID"]
+    }
+  },
+  {
+    "id": "CHAIN-065",
+    "title": "Overprivileged device registration lets attacker bypass CA",
+    "severity": "HIGH",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_id_020", "zt_id_007"],
+    "narrative": "Device registration is not restricted — any user in the tenant can register a new device. An attacker registers their attacker-controlled laptop as a 'compliant' device, then uses device-bound refresh tokens to satisfy the 'compliant device' Conditional Access requirement.",
+    "steps": [
+      {"number": 1, "actor": "Attacker with stolen creds", "action": "Register their laptop as a tenant device.", "technique": "T1098.005", "enabled_by": "zt_id_020", "gain": "Fake-compliant device object."},
+      {"number": 2, "actor": "Attacker", "action": "Obtain PRT; use it to bypass CA policies that require compliant device.", "technique": "T1550.001", "enabled_by": "zt_id_007", "gain": "Full session access to protected apps."}
+    ],
+    "blast_radius": {
+      "initial_access": "Stolen corporate creds.",
+      "max_privilege": "User level + CA bypass.",
+      "data_at_risk": ["User's protected-app data (Teams, SharePoint, Exchange)"],
+      "services_at_risk": ["Entra device trust"]
+    }
+  },
+  {
+    "id": "CHAIN-066",
+    "title": "Application admin grants Graph app perms without review",
+    "severity": "CRITICAL",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_id_013", "zt_id_011"],
+    "narrative": "A user holds Application Administrator (not Global Admin, but enough to grant admin consent for Graph application permissions). Combined with no review of consented apps, the admin can grant Directory.ReadWrite.All to a new app without detection and create a permanent backdoor.",
+    "steps": [
+      {"number": 1, "actor": "Malicious app admin", "action": "Register a new Entra app requesting Directory.ReadWrite.All as application permission.", "technique": "T1098", "enabled_by": "zt_id_013", "gain": "App awaiting consent."},
+      {"number": 2, "actor": "Same actor", "action": "Grant admin consent to the app (App Admin can).", "technique": "T1098", "enabled_by": "zt_id_011", "gain": "Persistent tenant-wide directory write via app backdoor."}
+    ],
+    "blast_radius": {
+      "initial_access": "Application Administrator role.",
+      "max_privilege": "Tenant-wide directory write via planted app.",
+      "data_at_risk": ["All directory objects"],
+      "services_at_risk": ["Entra ID"]
+    }
+  },
+  {
+    "id": "CHAIN-067",
+    "title": "Certificate-based SP auth with long-lived cert",
+    "severity": "HIGH",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_id_001", "zt_id_003"],
+    "narrative": "A service principal authenticates via a 10-year x.509 certificate. If the private key leaves the HSM once, there is no practical revocation. The SP holds Azure RBAC roles at subscription scope, making the leaked cert a decade-long backdoor.",
+    "steps": [
+      {"number": 1, "actor": "Attacker", "action": "Exfiltrate the private key from a misconfigured Key Vault or developer laptop.", "technique": "T1552.004", "enabled_by": "zt_id_001", "gain": "Valid certificate for SP auth."},
+      {"number": 2, "actor": "Attacker", "action": "Authenticate to Azure AD using the certificate; persist access for the cert's remaining lifetime.", "technique": "T1078", "enabled_by": "zt_id_003", "gain": "Long-lived subscription-scope RBAC."}
+    ],
+    "blast_radius": {
+      "initial_access": "Key material leak.",
+      "max_privilege": "SP's RBAC roles.",
+      "data_at_risk": ["Every resource the SP can reach"],
+      "services_at_risk": ["Azure RBAC"]
+    }
+  },
+  {
+    "id": "CHAIN-068",
+    "title": "MFA fatigue against non-enforced user",
+    "severity": "HIGH",
+    "likelihood": "High",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_id_004", "zt_id_015"],
+    "narrative": "A user has MFA configured but the Conditional Access policy is in report-only mode. An attacker with the password sprays MFA push notifications; when the policy is report-only, the attacker still gets the token even if the user denies the push (because the CA result was never enforced).",
+    "steps": [
+      {"number": 1, "actor": "Attacker", "action": "Spray valid password + trigger dozens of push notifications.", "technique": "T1621", "enabled_by": "zt_id_004", "gain": "Either user approves by mistake or CA-report-only lets it through."},
+      {"number": 2, "actor": "Attacker", "action": "Token issued despite denied push because policy is report-only.", "technique": "T1556.007", "enabled_by": "zt_id_015", "gain": "Authenticated session with full delegated scope."}
+    ],
+    "blast_radius": {
+      "initial_access": "Known password + MFA prompt bombardment.",
+      "max_privilege": "Target user's session.",
+      "data_at_risk": ["All apps the user can access"],
+      "services_at_risk": ["M365", "Azure portal"]
+    }
+  },
+  {
+    "id": "CHAIN-069",
+    "title": "Privileged authentication admin can reset any MFA",
+    "severity": "HIGH",
+    "likelihood": "Low",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_id_012", "zt_id_005"],
+    "narrative": "The Privileged Authentication Administrator role is assigned to a user who does not need it. This role can reset MFA methods on any user — including Global Admins. A compromised holder can replace a Global Admin's MFA with attacker-controlled factors and then sign in as that admin.",
+    "steps": [
+      {"number": 1, "actor": "Compromised PAA", "action": "Identify a GA user in the directory.", "technique": "T1087.004", "enabled_by": "zt_id_012", "gain": "Target admin account."},
+      {"number": 2, "actor": "PAA", "action": "Reset GA's MFA method to an attacker phone number.", "technique": "T1098.005", "enabled_by": "zt_id_012", "gain": "Control of GA's MFA."},
+      {"number": 3, "actor": "Attacker", "action": "Sign in as GA; password reset flow + attacker phone completes auth.", "technique": "T1078.004", "enabled_by": "zt_id_005", "gain": "Global Admin."}
+    ],
+    "blast_radius": {
+      "initial_access": "Compromised PAA account.",
+      "max_privilege": "Global Admin.",
+      "data_at_risk": ["All of tenant"],
+      "services_at_risk": ["Entra ID"]
+    }
+  },
+  {
+    "id": "CHAIN-070",
+    "title": "PIM active assignments used as normal role",
+    "severity": "MEDIUM",
+    "likelihood": "High",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_id_009", "zt_id_010"],
+    "narrative": "PIM roles are assigned as Active (not Eligible) so they never expire or require activation. This defeats the purpose of PIM — a compromised principal has permanent admin, not just-in-time admin.",
+    "steps": [
+      {"number": 1, "actor": "Attacker with creds", "action": "Sign in; role already active, no activation needed.", "technique": "T1078", "enabled_by": "zt_id_009", "gain": "Persistent admin."},
+      {"number": 2, "actor": "Attacker", "action": "Operate freely; no activation log to correlate on.", "technique": "T1562", "enabled_by": "zt_id_010", "gain": "Reduced detection surface."}
+    ],
+    "blast_radius": {
+      "initial_access": "Stolen creds of active-role holder.",
+      "max_privilege": "Assigned directory role, indefinitely.",
+      "data_at_risk": ["Role scope"],
+      "services_at_risk": ["Entra ID"]
+    }
+  },
+  {
+    "id": "CHAIN-071",
+    "title": "Access review disabled or never runs",
+    "severity": "MEDIUM",
+    "likelihood": "High",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_id_019", "zt_id_006"],
+    "narrative": "No access review is configured for privileged groups AND users with roles are never required to re-justify their access. Role assignments accumulate as people change teams. Eventually the tenant has 30+ Global Admins nobody can justify.",
+    "steps": [
+      {"number": 1, "actor": "Time / organisation drift", "action": "Users change jobs but keep old roles because nobody reviews.", "technique": "T1136.003", "enabled_by": "zt_id_019", "gain": "Stale admin inventory."},
+      {"number": 2, "actor": "Attacker", "action": "Target any one of the many admins who no longer need the role.", "technique": "T1078", "enabled_by": "zt_id_006", "gain": "High-probability attack surface."}
+    ],
+    "blast_radius": {
+      "initial_access": "Phishing any stale admin.",
+      "max_privilege": "Whatever that admin role grants.",
+      "data_at_risk": ["Role scope"],
+      "services_at_risk": ["Entra ID"]
+    }
+  },
+  {
+    "id": "CHAIN-072",
+    "title": "Group with external owners creates persistence",
+    "severity": "HIGH",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_id_024", "zt_id_023"],
+    "narrative": "A Microsoft 365 / Entra group has an external (guest) user listed as owner. Guest owners can edit membership and — depending on group settings — modify role assignments. A partner breach turns into a home tenant persistence mechanism.",
+    "steps": [
+      {"number": 1, "actor": "Partner attacker", "action": "Compromise the guest owner account on the partner side.", "technique": "T1078.004", "enabled_by": "zt_id_023", "gain": "Guest account with ownership."},
+      {"number": 2, "actor": "Guest owner", "action": "Add attacker-controlled user object to the group; role inherits.", "technique": "T1098", "enabled_by": "zt_id_024", "gain": "Persistent privileged membership."}
+    ],
+    "blast_radius": {
+      "initial_access": "Partner tenant compromise.",
+      "max_privilege": "Home tenant group role.",
+      "data_at_risk": ["Home tenant directory objects reachable via the group's role"],
+      "services_at_risk": ["Entra ID", "M365 groups"]
+    }
+  },
+  {
+    "id": "CHAIN-073",
+    "title": "Stale service principal with no owner",
+    "severity": "MEDIUM",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_id_022", "zt_id_001"],
+    "narrative": "A service principal exists with no listed owner AND a never-expiring credential. The original developer left years ago. The SP still has Contributor on a production subscription. No one will notice if its credential is used.",
+    "steps": [
+      {"number": 1, "actor": "Attacker with old leak", "action": "Discover the SP's client secret in an old CI log or GitHub history.", "technique": "T1552.001", "enabled_by": "zt_id_001", "gain": "Valid SP auth."},
+      {"number": 2, "actor": "Attacker", "action": "Use SP to operate on prod; no owner gets notified of anomalous activity.", "technique": "T1078", "enabled_by": "zt_id_022", "gain": "Stealth subscription-scope access."}
+    ],
+    "blast_radius": {
+      "initial_access": "Ancient secret leak.",
+      "max_privilege": "SP's RBAC assignment.",
+      "data_at_risk": ["Prod subscription resources"],
+      "services_at_risk": ["Whatever the stale SP can touch"]
+    }
+  },
+  {
+    "id": "CHAIN-074",
+    "title": "Guest user can invite more guests — supply-chain invitation",
+    "severity": "MEDIUM",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_id_023", "zt_id_021"],
+    "narrative": "Guest users are allowed to invite other guests (Restrict Guest Access setting is lax). Once one partner user is compromised, the attacker invites attacker-controlled identities into the home tenant and walks up the role graph from there.",
+    "steps": [
+      {"number": 1, "actor": "Compromised guest", "action": "Invite attacker@evil.com as guest.", "technique": "T1098", "enabled_by": "zt_id_021", "gain": "Attacker has a directory object."},
+      {"number": 2, "actor": "Attacker guest", "action": "Apply normal escalation chains (CHAIN-052, CHAIN-072).", "technique": "T1078.004", "enabled_by": "zt_id_023", "gain": "Follow-on chains available."}
+    ],
+    "blast_radius": {
+      "initial_access": "One compromised guest.",
+      "max_privilege": "Grows with follow-on chains.",
+      "data_at_risk": ["Directory read for all guests"],
+      "services_at_risk": ["Entra ID B2B"]
+    }
+  },
+  {
+    "id": "CHAIN-075",
+    "title": "Cross-tenant access without inbound trust restrictions",
+    "severity": "HIGH",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_id_021", "zt_id_007"],
+    "narrative": "Cross-tenant access settings allow any partner to authenticate into apps with inbound MFA/device claims trust — but the home tenant hasn't scoped which partner tenants qualify. Any tenant admin with a hostile user can auth to home apps with partner-claimed MFA.",
+    "steps": [
+      {"number": 1, "actor": "Hostile external tenant", "action": "Set up a tenant that claims MFA for all sign-ins.", "technique": "T1078.004", "enabled_by": "zt_id_021", "gain": "Partner tenant with spoofed claims."},
+      {"number": 2, "actor": "Hostile user", "action": "Cross-tenant sign-in to home app; MFA claim satisfied externally.", "technique": "T1556.007", "enabled_by": "zt_id_007", "gain": "Authenticated on home app with fake MFA assurance."}
+    ],
+    "blast_radius": {
+      "initial_access": "Open inbound cross-tenant trust.",
+      "max_privilege": "Whatever the app grants to guests.",
+      "data_at_risk": ["App-scope data"],
+      "services_at_risk": ["Every app published to the tenant"]
+    }
+  },
+  {
+    "id": "CHAIN-076",
+    "title": "Federated identity provider trust compromise",
+    "severity": "CRITICAL",
+    "likelihood": "Low",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_id_018", "zt_id_007"],
+    "narrative": "Tenant federates authentication to a third-party IdP (ADFS, Okta, Ping). If the IdP's signing cert is stolen or the IdP itself is compromised, the attacker can mint SAML tokens claiming any UPN — Global Admin included. This is the Solorigate pattern.",
+    "steps": [
+      {"number": 1, "actor": "Attacker on IdP", "action": "Exfiltrate the SAML token-signing private key.", "technique": "T1552.004", "enabled_by": "zt_id_018", "gain": "Ability to forge any SAML assertion."},
+      {"number": 2, "actor": "Attacker", "action": "Mint a SAML token claiming the UPN of a Global Admin; present to Entra.", "technique": "T1606.002", "enabled_by": "zt_id_007", "gain": "Forged Global Admin session, no password needed."}
+    ],
+    "blast_radius": {
+      "initial_access": "IdP compromise.",
+      "max_privilege": "Any UPN — including GA.",
+      "data_at_risk": ["Entire tenant"],
+      "services_at_risk": ["Entra ID"]
+    }
+  }
+]

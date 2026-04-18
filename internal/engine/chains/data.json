@@ -1,0 +1,478 @@
+[
+  {
+    "id": "CHAIN-077",
+    "title": "Key Vault soft-delete disabled + privileged RBAC",
+    "severity": "CRITICAL",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_data_011", "zt_id_003"],
+    "narrative": "Key Vault has soft-delete disabled. A privileged principal (or one compromised via any chain) deletes the vault. Every secret, cert, and key inside is gone permanently — the classic ransomware 'destroy the evidence' move, except for all cryptographic material.",
+    "steps": [
+      {"number": 1, "actor": "Attacker with Contributor", "action": "Call DELETE /vaults/<name>.", "technique": "T1485", "enabled_by": "zt_data_011", "gain": "Vault purged; no recovery possible."},
+      {"number": 2, "actor": "Organisation", "action": "Every app dependent on vault secrets fails.", "technique": "T1485", "enabled_by": "zt_id_003", "gain": "Extended outage + forced key rotation for whatever was stored."}
+    ],
+    "blast_radius": {
+      "initial_access": "Contributor on vault resource group.",
+      "max_privilege": "Destructive — not escalation, but irrecoverable loss.",
+      "data_at_risk": ["Every secret, cert, key in vault"],
+      "services_at_risk": ["Any app that pulls from the vault"]
+    }
+  },
+  {
+    "id": "CHAIN-078",
+    "title": "Storage account SAS token with long TTL + URL leak",
+    "severity": "HIGH",
+    "likelihood": "High",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_data_012", "zt_data_001"],
+    "narrative": "Storage generates SAS tokens with expiry > 90 days AND blob public access is off (private by design). A SAS token leaked into a log, browser history, or URL referrer still unlocks the storage account for three months, bypassing firewall rules.",
+    "steps": [
+      {"number": 1, "actor": "Attacker", "action": "Find the SAS URL in a leaked HAR / web archive / log file.", "technique": "T1552.001", "enabled_by": "zt_data_012", "gain": "Valid signed URL."},
+      {"number": 2, "actor": "Attacker", "action": "Use the SAS to download every blob, bypassing private endpoint or firewall.", "technique": "T1530", "enabled_by": "zt_data_001", "gain": "Bulk data exfiltration."}
+    ],
+    "blast_radius": {
+      "initial_access": "SAS URL in any leaked artifact.",
+      "max_privilege": "Whatever the SAS was scoped to.",
+      "data_at_risk": ["Every blob in SAS scope"],
+      "services_at_risk": ["Azure Storage"]
+    }
+  },
+  {
+    "id": "CHAIN-079",
+    "title": "Cosmos DB account key exposed in App Service config",
+    "severity": "HIGH",
+    "likelihood": "High",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_data_007", "zt_wl_017"],
+    "narrative": "Cosmos DB is accessed via master account key stored in App Service application settings. The key is readable by anyone with Website Contributor and grants root access to the entire Cosmos account. Managed identity would sandbox this; the developer chose the shortcut.",
+    "steps": [
+      {"number": 1, "actor": "Attacker with Website Contributor", "action": "Read app settings; find CosmosDBKey value.", "technique": "T1552.001", "enabled_by": "zt_wl_017", "gain": "Valid Cosmos master key."},
+      {"number": 2, "actor": "Attacker", "action": "Use key via Cosmos SDK; full read + delete on every container.", "technique": "T1565.001", "enabled_by": "zt_data_007", "gain": "Unrestricted database access."}
+    ],
+    "blast_radius": {
+      "initial_access": "App Service config read.",
+      "max_privilege": "Cosmos DB root.",
+      "data_at_risk": ["Every Cosmos container in the account"],
+      "services_at_risk": ["Cosmos DB", "Dependent app state"]
+    }
+  },
+  {
+    "id": "CHAIN-080",
+    "title": "SQL Server firewall 0.0.0.0-255.255.255.255",
+    "severity": "CRITICAL",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_data_003", "zt_data_004"],
+    "narrative": "An Azure SQL Server has a firewall rule opening 0.0.0.0 to 255.255.255.255 and uses SQL authentication (no Entra integration). Any attacker with credentials — or success against a password-spray — has a direct connection string from anywhere on the internet.",
+    "steps": [
+      {"number": 1, "actor": "Attacker", "action": "Connect to <server>.database.windows.net:1433 from anywhere.", "technique": "T1190", "enabled_by": "zt_data_003", "gain": "TCP reachability."},
+      {"number": 2, "actor": "Attacker", "action": "Spray credentials against SQL auth.", "technique": "T1110.003", "enabled_by": "zt_data_004", "gain": "Valid SQL login."},
+      {"number": 3, "actor": "Attacker", "action": "Read, alter, or xp_cmdshell-style escalation depending on role.", "technique": "T1005", "enabled_by": "zt_data_003", "gain": "Database content + possible host access."}
+    ],
+    "blast_radius": {
+      "initial_access": "Internet + credentials.",
+      "max_privilege": "DB role + potential host escape.",
+      "data_at_risk": ["All databases on the server"],
+      "services_at_risk": ["Azure SQL", "Dependent apps"]
+    }
+  },
+  {
+    "id": "CHAIN-081",
+    "title": "Data Factory linked service with cleartext credential",
+    "severity": "HIGH",
+    "likelihood": "High",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_data_021", "zt_vis_001"],
+    "narrative": "An ADF pipeline uses a linked service that stores DB credentials inline instead of referencing Key Vault. Anyone with Data Factory Reader on the workspace can read the linked service JSON and extract the password. No vault rotation, no CA gate, no alert.",
+    "steps": [
+      {"number": 1, "actor": "DF Reader", "action": "Export pipeline + linked service JSON via portal or API.", "technique": "T1552.001", "enabled_by": "zt_data_021", "gain": "DB credential in plaintext."},
+      {"number": 2, "actor": "Attacker", "action": "Connect directly to the referenced database.", "technique": "T1078", "enabled_by": "zt_vis_001", "gain": "No trace — DF audit log doesn't cover external DB sessions."}
+    ],
+    "blast_radius": {
+      "initial_access": "Data Factory Reader.",
+      "max_privilege": "DB role granted to the credential.",
+      "data_at_risk": ["Source/sink database content"],
+      "services_at_risk": ["Any data store linked to this ADF"]
+    }
+  },
+  {
+    "id": "CHAIN-082",
+    "title": "Databricks workspace token sprawl + public access",
+    "severity": "HIGH",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_data_022", "zt_data_001"],
+    "narrative": "Databricks workspace uses public network access for the control plane and users generate long-lived personal access tokens. A leaked token lets an attacker run arbitrary Spark jobs, which have cluster-level credentials to read any data source the workspace connects to.",
+    "steps": [
+      {"number": 1, "actor": "Attacker", "action": "Harvest a PAT from a developer laptop or CI pipeline log.", "technique": "T1552.001", "enabled_by": "zt_data_022", "gain": "Bearer token for Databricks API."},
+      {"number": 2, "actor": "Attacker", "action": "Submit a Spark job that dbutils.fs reads every mounted storage.", "technique": "T1213", "enabled_by": "zt_data_001", "gain": "Bulk exfiltration through Spark."}
+    ],
+    "blast_radius": {
+      "initial_access": "Leaked PAT.",
+      "max_privilege": "Whatever the cluster IAM role grants.",
+      "data_at_risk": ["All mounted storage", "Metastores", "Delta tables"],
+      "services_at_risk": ["Databricks", "Downstream data lake"]
+    }
+  },
+  {
+    "id": "CHAIN-083",
+    "title": "Synapse SQL pool without TDE + public endpoint",
+    "severity": "HIGH",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_data_029", "zt_data_003"],
+    "narrative": "A Synapse dedicated SQL pool is reachable over the public endpoint AND Transparent Data Encryption is disabled. A compromised DBA session yields unencrypted BAK files, and any backup exfil to attacker storage is plaintext.",
+    "steps": [
+      {"number": 1, "actor": "Attacker with DBA", "action": "BACKUP DATABASE to URL pointing at attacker storage.", "technique": "T1213", "enabled_by": "zt_data_003", "gain": "BAK file in attacker control."},
+      {"number": 2, "actor": "Attacker", "action": "RESTORE locally; no TDE decryption needed.", "technique": "T1552", "enabled_by": "zt_data_029", "gain": "Plaintext warehouse content."}
+    ],
+    "blast_radius": {
+      "initial_access": "DBA role + public DB endpoint.",
+      "max_privilege": "Warehouse dataset.",
+      "data_at_risk": ["All Synapse tables"],
+      "services_at_risk": ["Synapse", "Dependent BI"]
+    }
+  },
+  {
+    "id": "CHAIN-084",
+    "title": "Stream Analytics input with embedded storage key",
+    "severity": "MEDIUM",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_data_024", "zt_data_012"],
+    "narrative": "A Stream Analytics job reads from a storage account using an embedded account key rather than managed identity. A job export leaks the key; the storage account has a loose SAS policy. One exposure chains into long-term account access.",
+    "steps": [
+      {"number": 1, "actor": "Attacker", "action": "Export ASA job definition; extract account key.", "technique": "T1552.001", "enabled_by": "zt_data_024", "gain": "Storage account key."},
+      {"number": 2, "actor": "Attacker", "action": "Use key to mint fresh SAS; access any container.", "technique": "T1530", "enabled_by": "zt_data_012", "gain": "Persistent storage access."}
+    ],
+    "blast_radius": {
+      "initial_access": "ASA job read.",
+      "max_privilege": "Full storage account.",
+      "data_at_risk": ["Entire storage account"],
+      "services_at_risk": ["Storage", "Downstream ASA outputs"]
+    }
+  },
+  {
+    "id": "CHAIN-085",
+    "title": "Redis cache exposed without AUTH",
+    "severity": "CRITICAL",
+    "likelihood": "High",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_data_025", "zt_net_001"],
+    "narrative": "An Azure Cache for Redis has public network access enabled, and the developer enabled non-SSL port 6379 or disabled AUTH. Redis is internet-reachable, no auth required. Any attacker can KEYS *, read session tokens, and impersonate users.",
+    "steps": [
+      {"number": 1, "actor": "Attacker", "action": "Shodan-scan *.redis.cache.windows.net for 6379.", "technique": "T1595.001", "enabled_by": "zt_data_025", "gain": "Reachable Redis."},
+      {"number": 2, "actor": "Attacker", "action": "KEYS * and GET session:*; harvest tokens.", "technique": "T1005", "enabled_by": "zt_net_001", "gain": "Session tokens for any app backed by this Redis."}
+    ],
+    "blast_radius": {
+      "initial_access": "Internet scan.",
+      "max_privilege": "User sessions.",
+      "data_at_risk": ["Every key in Redis"],
+      "services_at_risk": ["Apps using this Redis for sessions/cache"]
+    }
+  },
+  {
+    "id": "CHAIN-086",
+    "title": "HDInsight cluster without VNet injection",
+    "severity": "HIGH",
+    "likelihood": "Low",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_data_026", "zt_net_001"],
+    "narrative": "HDInsight cluster nodes are reachable from the public internet and authenticate with cluster-local SSH keys. A weak SSH config yields a Hadoop worker shell which has credentials to every storage account the cluster writes to.",
+    "steps": [
+      {"number": 1, "actor": "Attacker", "action": "SSH to *-ssh.azurehdinsight.net; spray weak passwords.", "technique": "T1110", "enabled_by": "zt_data_026", "gain": "Hadoop shell."},
+      {"number": 2, "actor": "Attacker", "action": "Use Hadoop CLI to read/write connected storage accounts.", "technique": "T1213", "enabled_by": "zt_net_001", "gain": "Cluster-adjacent data exfil."}
+    ],
+    "blast_radius": {
+      "initial_access": "Public SSH + weak auth.",
+      "max_privilege": "Cluster storage access.",
+      "data_at_risk": ["Attached storage accounts"],
+      "services_at_risk": ["HDInsight", "Storage"]
+    }
+  },
+  {
+    "id": "CHAIN-087",
+    "title": "Purview account with public access + privileged collections",
+    "severity": "MEDIUM",
+    "likelihood": "Low",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_data_027", "zt_vis_001"],
+    "narrative": "Azure Purview catalogs data sources — reading the catalog itself leaks the table names, schemas, and classification labels of sensitive data. If Purview is publicly reachable AND audit logs aren't on, an attacker can reconnoitre the entire data estate.",
+    "steps": [
+      {"number": 1, "actor": "Attacker", "action": "Probe Purview REST API with any token.", "technique": "T1087", "enabled_by": "zt_data_027", "gain": "Data catalog metadata."},
+      {"number": 2, "actor": "Attacker", "action": "Target the highest-classification assets listed; pivot to chain exploits.", "technique": "T1087", "enabled_by": "zt_vis_001", "gain": "Selective, high-value data targeting."}
+    ],
+    "blast_radius": {
+      "initial_access": "Public Purview API.",
+      "max_privilege": "Reconnaissance.",
+      "data_at_risk": ["Catalog metadata"],
+      "services_at_risk": ["Every asset cataloged"]
+    }
+  },
+  {
+    "id": "CHAIN-088",
+    "title": "MariaDB server with public endpoint + SSL off",
+    "severity": "HIGH",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_data_030", "zt_net_002"],
+    "narrative": "A MariaDB flexible server is reachable over the public internet and client SSL enforcement is disabled. An attacker who obtains the connection string gets clear-text credentials over the wire, and on-path adversaries can sniff traffic too.",
+    "steps": [
+      {"number": 1, "actor": "Attacker", "action": "Locate the connection string in an app repo.", "technique": "T1552.001", "enabled_by": "zt_data_030", "gain": "Valid DB credentials."},
+      {"number": 2, "actor": "Attacker", "action": "Connect over plaintext; read any table.", "technique": "T1040", "enabled_by": "zt_net_002", "gain": "Database content + sniffable session for follow-on creds."}
+    ],
+    "blast_radius": {
+      "initial_access": "Internet reachability + creds.",
+      "max_privilege": "DB user role.",
+      "data_at_risk": ["MariaDB databases"],
+      "services_at_risk": ["Dependent apps"]
+    }
+  },
+  {
+    "id": "CHAIN-089",
+    "title": "Data Lake Gen2 with container-level public access",
+    "severity": "CRITICAL",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_data_031", "zt_data_001"],
+    "narrative": "A Data Lake Storage Gen2 account has one container set to Blob public access. Gen2's hierarchical namespace means the entire directory tree under that container is readable anonymously. Enterprises often discover this AFTER the data has been indexed by search engines.",
+    "steps": [
+      {"number": 1, "actor": "Attacker", "action": "Discover the container name via enumeration or search indexing.", "technique": "T1580", "enabled_by": "zt_data_001", "gain": "Reachable ADLS path."},
+      {"number": 2, "actor": "Attacker", "action": "Walk the hierarchical namespace; download entire folder trees.", "technique": "T1530", "enabled_by": "zt_data_031", "gain": "Bulk lake dataset exfil."}
+    ],
+    "blast_radius": {
+      "initial_access": "Anon internet.",
+      "max_privilege": "Read on the exposed container.",
+      "data_at_risk": ["All lake data in container"],
+      "services_at_risk": ["ADLS Gen2", "Downstream analytics consumers"]
+    }
+  },
+  {
+    "id": "CHAIN-090",
+    "title": "NetApp volume NFSv3 without export policy scoping",
+    "severity": "HIGH",
+    "likelihood": "Low",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_data_028", "zt_net_002"],
+    "narrative": "A NetApp volume uses NFSv3 (IP-based auth only) and its export policy allows any subnet in the VNet. A compromised VM in any peered VNet can mount the volume without per-user auth.",
+    "steps": [
+      {"number": 1, "actor": "Attacker on peered VM", "action": "mount -o nfsvers=3 <netapp>:/vol /mnt.", "technique": "T1078", "enabled_by": "zt_data_028", "gain": "Volume access without per-user auth."},
+      {"number": 2, "actor": "Attacker", "action": "Read every file, no audit trail of per-user access.", "technique": "T1005", "enabled_by": "zt_net_002", "gain": "Silent file exfil."}
+    ],
+    "blast_radius": {
+      "initial_access": "VM foothold in peered VNet.",
+      "max_privilege": "NFS-layer file access.",
+      "data_at_risk": ["NetApp volume contents"],
+      "services_at_risk": ["NetApp", "Dependent file-sharing apps"]
+    }
+  },
+  {
+    "id": "CHAIN-091",
+    "title": "Managed disk snapshot with overly-permissive SAS",
+    "severity": "HIGH",
+    "likelihood": "Low",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_data_008", "zt_data_012"],
+    "narrative": "A managed disk snapshot is exported via SAS URL with Read access + 7-day TTL. The URL ends up in a support ticket. Anyone with the URL downloads the full disk image — including OS, app secrets, and any cached database files.",
+    "steps": [
+      {"number": 1, "actor": "Attacker", "action": "Find the SAS URL in a leaked email / ticket.", "technique": "T1552.001", "enabled_by": "zt_data_012", "gain": "Disk VHD URL."},
+      {"number": 2, "actor": "Attacker", "action": "Download and mount the VHD locally.", "technique": "T1565.001", "enabled_by": "zt_data_008", "gain": "Full disk offline analysis — extract cached passwords, keys, data."}
+    ],
+    "blast_radius": {
+      "initial_access": "Leaked SAS URL.",
+      "max_privilege": "Full offline disk analysis.",
+      "data_at_risk": ["Everything on the disk"],
+      "services_at_risk": ["Any app whose state was on the disk"]
+    }
+  },
+  {
+    "id": "CHAIN-092",
+    "title": "Cross-region replication to unauthorised region",
+    "severity": "MEDIUM",
+    "likelihood": "Low",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_data_009", "zt_data_010"],
+    "narrative": "A storage account is configured for GRS to a region outside the tenant's data residency commitments. A compliance auditor flags this as a data-sovereignty breach — but operationally the data is also reachable from the secondary region, doubling the attack surface.",
+    "steps": [
+      {"number": 1, "actor": "Compliance failure", "action": "GRS writes continuous copies to a non-approved region.", "technique": "T1537", "enabled_by": "zt_data_009", "gain": "Data residing outside contractual region."},
+      {"number": 2, "actor": "Regional attacker", "action": "Compromise the secondary endpoint; same content as primary.", "technique": "T1530", "enabled_by": "zt_data_010", "gain": "Data in a harder-to-monitor region."}
+    ],
+    "blast_radius": {
+      "initial_access": "Secondary-region attack path.",
+      "max_privilege": "Read on replicated blobs.",
+      "data_at_risk": ["Same as primary"],
+      "services_at_risk": ["Cross-region storage"]
+    }
+  },
+  {
+    "id": "CHAIN-093",
+    "title": "Table Storage with soft-delete off + public access",
+    "severity": "HIGH",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_data_014", "zt_data_015"],
+    "narrative": "Table Storage has no soft-delete protection AND public read is enabled. A ransomware actor who reaches any RBAC writer can simply delete all rows — no undelete, no restore, full data loss.",
+    "steps": [
+      {"number": 1, "actor": "Attacker", "action": "Authenticate with a leaked SAS or compromised RBAC.", "technique": "T1552", "enabled_by": "zt_data_015", "gain": "Table write."},
+      {"number": 2, "actor": "Attacker", "action": "DELETE every partition key batch; no recovery available.", "technique": "T1485", "enabled_by": "zt_data_014", "gain": "Table obliteration."}
+    ],
+    "blast_radius": {
+      "initial_access": "SAS or RBAC compromise.",
+      "max_privilege": "Destructive — table destruction.",
+      "data_at_risk": ["Table content"],
+      "services_at_risk": ["Any app reading the table"]
+    }
+  },
+  {
+    "id": "CHAIN-094",
+    "title": "Blob versioning off + immutability off + writable",
+    "severity": "CRITICAL",
+    "likelihood": "High",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_data_013", "zt_data_016"],
+    "narrative": "A storage container has blob versioning and immutability both off AND a compromised key. A ransomware operator overwrites every blob with encrypted content. Original data gone — this is 'ransomware by API call'.",
+    "steps": [
+      {"number": 1, "actor": "Attacker with key", "action": "Authenticate via SAS/account key.", "technique": "T1078", "enabled_by": "zt_data_013", "gain": "Write access to container."},
+      {"number": 2, "actor": "Attacker", "action": "PUT encrypted content over every existing blob; previous version unreachable.", "technique": "T1486", "enabled_by": "zt_data_016", "gain": "Full encryption ransomware on storage."}
+    ],
+    "blast_radius": {
+      "initial_access": "Any storage write access.",
+      "max_privilege": "Destructive — full container encryption.",
+      "data_at_risk": ["Every blob in container"],
+      "services_at_risk": ["Storage", "Any dependent app"]
+    }
+  },
+  {
+    "id": "CHAIN-095",
+    "title": "Column-level encryption miss on PII table",
+    "severity": "MEDIUM",
+    "likelihood": "High",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_data_017", "zt_data_004"],
+    "narrative": "A SQL table holds PII in a column without Always Encrypted. A DBA role can read the plaintext. Database role compromise turns a 'authorised DBA session' into mass PII exfil with no crypto boundary to slow the attacker.",
+    "steps": [
+      {"number": 1, "actor": "Attacker with DBA", "action": "SELECT * FROM sensitive_table.", "technique": "T1005", "enabled_by": "zt_data_017", "gain": "Plaintext PII."},
+      {"number": 2, "actor": "Attacker", "action": "Bulk export to attacker storage; no Always Encrypted to block.", "technique": "T1048", "enabled_by": "zt_data_004", "gain": "Massive PII breach."}
+    ],
+    "blast_radius": {
+      "initial_access": "DBA compromise.",
+      "max_privilege": "Mass PII read.",
+      "data_at_risk": ["Sensitive column content"],
+      "services_at_risk": ["Any app keeping regulated PII in SQL"]
+    }
+  },
+  {
+    "id": "CHAIN-096",
+    "title": "Cosmos DB multi-region replication to wrong region",
+    "severity": "MEDIUM",
+    "likelihood": "Low",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_data_018", "zt_data_009"],
+    "narrative": "Cosmos DB has a secondary replica in a region outside data-residency commitments. The replica is still ARM-addressable; a compromised principal targets the off-region endpoint which may have weaker VNet rules.",
+    "steps": [
+      {"number": 1, "actor": "Attacker", "action": "Enumerate Cosmos accounts; find the off-region writeable replica.", "technique": "T1087", "enabled_by": "zt_data_018", "gain": "Replica endpoint with looser firewall."},
+      {"number": 2, "actor": "Attacker", "action": "Authenticate + read; same data as primary.", "technique": "T1213", "enabled_by": "zt_data_009", "gain": "Read-path circumvention of the primary's hardening."}
+    ],
+    "blast_radius": {
+      "initial_access": "Off-region endpoint exposure.",
+      "max_privilege": "Cosmos read/write role.",
+      "data_at_risk": ["Same content as primary"],
+      "services_at_risk": ["Cosmos DB"]
+    }
+  },
+  {
+    "id": "CHAIN-097",
+    "title": "Legacy File Share SMB exposed outside trusted network",
+    "severity": "HIGH",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_data_019", "zt_net_005"],
+    "narrative": "An Azure Files share uses SMB and is reachable over public IP addresses (firewall allows Azure services + public). Any compromised VM can mount the share with a captured account key.",
+    "steps": [
+      {"number": 1, "actor": "Attacker with key", "action": "net use \\\\account.file.core.windows.net\\share /user:AZURE\\account <key>.", "technique": "T1078", "enabled_by": "zt_data_019", "gain": "Mounted share from anywhere."},
+      {"number": 2, "actor": "Attacker", "action": "Walk share, exfiltrate, or deploy ransomware.", "technique": "T1486", "enabled_by": "zt_net_005", "gain": "Mass file-server compromise."}
+    ],
+    "blast_radius": {
+      "initial_access": "Captured key + SMB reachability.",
+      "max_privilege": "Full share access.",
+      "data_at_risk": ["Every file on the share"],
+      "services_at_risk": ["Azure Files consumers"]
+    }
+  },
+  {
+    "id": "CHAIN-098",
+    "title": "Immutability lock too short for retention requirements",
+    "severity": "MEDIUM",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_data_020", "zt_data_016"],
+    "narrative": "Blob immutability policy is set but retention is shorter than required retention (e.g. 30 days when SOX requires 7 years). Auditors flag this as a compliance gap; operationally, the window during which data can be deleted is earlier than expected.",
+    "steps": [
+      {"number": 1, "actor": "Compliance finding", "action": "Immutability window expires; blobs become deletable.", "technique": "T1485", "enabled_by": "zt_data_020", "gain": "Premature deletion eligibility."},
+      {"number": 2, "actor": "Attacker", "action": "Delete or overwrite; pre-retention-period exposure.", "technique": "T1486", "enabled_by": "zt_data_016", "gain": "Data destruction before audit retention met."}
+    ],
+    "blast_radius": {
+      "initial_access": "Any WRITE role.",
+      "max_privilege": "Destructive during early window.",
+      "data_at_risk": ["Blobs under too-short lock"],
+      "services_at_risk": ["Regulated data store"]
+    }
+  },
+  {
+    "id": "CHAIN-099",
+    "title": "TDE with customer-managed key + Key Vault purge protection off",
+    "severity": "CRITICAL",
+    "likelihood": "Low",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_data_004", "zt_data_011"],
+    "narrative": "A SQL server uses TDE with a customer-managed key stored in a Key Vault where purge protection is off. An attacker-admin purges the vault, permanently losing the key. TDE data is then unreadable forever — cryptographic self-destruct.",
+    "steps": [
+      {"number": 1, "actor": "Attacker-admin", "action": "Delete the Key Vault.", "technique": "T1485", "enabled_by": "zt_data_011", "gain": "Vault soft-deleted."},
+      {"number": 2, "actor": "Attacker-admin", "action": "Purge the soft-deleted vault.", "technique": "T1485", "enabled_by": "zt_data_004", "gain": "Permanent key loss; all TDE-encrypted data unreadable."}
+    ],
+    "blast_radius": {
+      "initial_access": "Key Vault Contributor.",
+      "max_privilege": "Cryptographic DoS.",
+      "data_at_risk": ["All TDE-encrypted DBs using this key"],
+      "services_at_risk": ["SQL Server", "Dependent app"]
+    }
+  },
+  {
+    "id": "CHAIN-100",
+    "title": "Queue Storage without encryption-at-rest enforcement",
+    "severity": "MEDIUM",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_data_005", "zt_data_006"],
+    "narrative": "Queue Storage handles transient messages that often carry secrets (webhook payloads, user tokens). Encryption-at-rest is platform-default but key rotation is not enforced. A compromised Azure-layer subpoena + key theft yields historical queue content.",
+    "steps": [
+      {"number": 1, "actor": "Advanced adversary", "action": "Compromise key rotation process or obtain KV access.", "technique": "T1552.004", "enabled_by": "zt_data_006", "gain": "Encryption key."},
+      {"number": 2, "actor": "Adversary", "action": "Decrypt historical queue snapshots.", "technique": "T1005", "enabled_by": "zt_data_005", "gain": "Past sensitive message content."}
+    ],
+    "blast_radius": {
+      "initial_access": "Key management compromise.",
+      "max_privilege": "Historical message decryption.",
+      "data_at_risk": ["Past queue messages"],
+      "services_at_risk": ["Apps trusting queue confidentiality"]
+    }
+  },
+  {
+    "id": "CHAIN-101",
+    "title": "Lake House table with no row-level security on multi-tenant data",
+    "severity": "HIGH",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_data_023", "zt_data_017"],
+    "narrative": "A Synapse or Databricks table holds multi-tenant data with a tenant_id column but no row-level security filter. Any query user reads every tenant's rows — a classic tenant-isolation bug that audits rarely catch because 'the data is in Azure'.",
+    "steps": [
+      {"number": 1, "actor": "Authorised tenant-A user", "action": "SELECT * FROM shared_table WHERE 1=1.", "technique": "T1213", "enabled_by": "zt_data_023", "gain": "Tenant-B + tenant-C rows."},
+      {"number": 2, "actor": "Malicious insider", "action": "Bulk export; tenant separation violated.", "technique": "T1005", "enabled_by": "zt_data_017", "gain": "Cross-tenant data breach."}
+    ],
+    "blast_radius": {
+      "initial_access": "Authenticated analyst role.",
+      "max_privilege": "Read all tenant rows.",
+      "data_at_risk": ["Multi-tenant dataset"],
+      "services_at_risk": ["Any shared data asset"]
+    }
+  }
+]

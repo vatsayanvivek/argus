@@ -1,0 +1,24 @@
+PackageIdentifier: VatsayanVivek.Argus
+PackageVersion: __VERSION__
+PackageLocale: en-US
+Publisher: vatsayanvivek
+PublisherUrl: https://github.com/vatsayanvivek
+PublisherSupportUrl: https://github.com/vatsayanvivek/argus/issues
+PackageName: ARGUS
+PackageUrl: https://github.com/vatsayanvivek/argus
+License: PolyForm Strict License 1.0.0
+LicenseUrl: https://github.com/vatsayanvivek/argus/blob/main/LICENSE
+ShortDescription: Agentless, offline Azure CSPM + attack-chain analyser.
+Description: >
+  ARGUS is a single-binary Azure Cloud Security Posture Management tool.
+  It runs entirely in your environment — no SaaS, no telemetry — and produces
+  attack-chain narratives across 245 Rego rules and 200 attack chains.
+Moniker: argus
+Tags:
+  - azure
+  - security
+  - cspm
+  - iac
+  - compliance
+ManifestType: defaultLocale
+ManifestVersion: 1.6.0

@@ -1,0 +1,192 @@
+[
+  {
+    "id": "CHAIN-172",
+    "title": "Recovery Services Vault without immutability + Backup Contributor compromise",
+    "severity": "CRITICAL",
+    "likelihood": "High",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_bak_001", "zt_bak_002"],
+    "narrative": "A Recovery Services Vault has no immutability policy AND soft-delete is shorter than the backup retention policy. A ransomware operator who escalates to Backup Contributor simply deletes recovery points before encrypting primary data — no restore path remains.",
+    "steps": [
+      {"number": 1, "actor": "Ransomware operator", "action": "Delete recovery points; soft-delete expires quickly.", "technique": "T1485", "enabled_by": "zt_bak_001", "gain": "Unrecoverable loss of backups."},
+      {"number": 2, "actor": "Attacker", "action": "Encrypt primary data; victim has no backup.", "technique": "T1486", "enabled_by": "zt_bak_002", "gain": "Complete ransomware leverage."}
+    ],
+    "blast_radius": {
+      "initial_access": "Backup Contributor.",
+      "max_privilege": "Destruction of backup state.",
+      "data_at_risk": ["All backed-up workloads"],
+      "services_at_risk": ["Every protected VM / database"]
+    }
+  },
+  {
+    "id": "CHAIN-173",
+    "title": "Backup policy retention shorter than compliance requirement",
+    "severity": "MEDIUM",
+    "likelihood": "High",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_bak_004", "zt_vis_001"],
+    "narrative": "A backup policy retains daily backups for 30 days but the regulatory requirement is 7 years. During an audit, the gap is revealed — or during a legal hold, historical data required for discovery cannot be produced.",
+    "steps": [
+      {"number": 1, "actor": "Time", "action": "Backups rotate out at 30 days.", "technique": "T1070.004", "enabled_by": "zt_bak_004", "gain": "Historical data gap."},
+      {"number": 2, "actor": "Audit / legal", "action": "Requested data unavailable.", "technique": "T1491", "enabled_by": "zt_vis_001", "gain": "Compliance finding or legal exposure."}
+    ],
+    "blast_radius": {
+      "initial_access": "Time-driven data loss.",
+      "max_privilege": "Audit findings.",
+      "data_at_risk": ["Historical records"],
+      "services_at_risk": ["Audit posture"]
+    }
+  },
+  {
+    "id": "CHAIN-174",
+    "title": "Azure Backup cross-region replication disabled",
+    "severity": "HIGH",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_bak_003", "zt_bak_002"],
+    "narrative": "Backup vault is configured for LRS (local-redundant) only — no cross-region replication. A regional Azure outage or regional disaster means no recovery path; the entire backup estate is offline along with primary infrastructure.",
+    "steps": [
+      {"number": 1, "actor": "Regional disaster", "action": "Primary + backup region become unavailable.", "technique": "T1561", "enabled_by": "zt_bak_003", "gain": "Backup inaccessibility."},
+      {"number": 2, "actor": "Business", "action": "Extended RTO beyond stated DR objective.", "technique": "T1499", "enabled_by": "zt_bak_002", "gain": "DR failure."}
+    ],
+    "blast_radius": {
+      "initial_access": "Regional event.",
+      "max_privilege": "DR failure.",
+      "data_at_risk": ["Backup availability"],
+      "services_at_risk": ["All backed-up workloads during DR"]
+    }
+  },
+  {
+    "id": "CHAIN-175",
+    "title": "Site Recovery RPO higher than business tolerance",
+    "severity": "MEDIUM",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_bak_005", "zt_bak_004"],
+    "narrative": "Azure Site Recovery RPO is 4 hours for a system whose tolerance is 15 minutes. A failover loses 4 hours of transactions; incident post-mortem reveals the mismatch and triggers a costly re-architecture.",
+    "steps": [
+      {"number": 1, "actor": "Primary failure", "action": "Failover to Site Recovery replica.", "technique": "T1499", "enabled_by": "zt_bak_005", "gain": "Service restored but with data loss."},
+      {"number": 2, "actor": "Business impact", "action": "4 hours of transactions lost; customer SLA breached.", "technique": "T1486", "enabled_by": "zt_bak_004", "gain": "Transactional data loss + SLA failure."}
+    ],
+    "blast_radius": {
+      "initial_access": "Disaster event.",
+      "max_privilege": "Data loss during failover.",
+      "data_at_risk": ["Transactions in the RPO window"],
+      "services_at_risk": ["Any app replicated via ASR"]
+    }
+  },
+  {
+    "id": "CHAIN-176",
+    "title": "Recovery Vault without Multi-User Authorization",
+    "severity": "HIGH",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_bak_001", "zt_id_003"],
+    "narrative": "Recovery Services Vault does not require a second approver for destructive operations (MUA disabled). A single compromised Backup Contributor can delete recovery points unilaterally — no approval workflow, no four-eyes control.",
+    "steps": [
+      {"number": 1, "actor": "Compromised BC", "action": "Delete recovery points in a single action.", "technique": "T1485", "enabled_by": "zt_bak_001", "gain": "Unchallenged backup destruction."},
+      {"number": 2, "actor": "Attacker", "action": "Proceed with ransomware knowing no backup recovery is possible.", "technique": "T1486", "enabled_by": "zt_id_003", "gain": "Maximum ransomware leverage."}
+    ],
+    "blast_radius": {
+      "initial_access": "Single compromised admin.",
+      "max_privilege": "Irreversible backup deletion.",
+      "data_at_risk": ["All backed-up workloads"],
+      "services_at_risk": ["Backup vault"]
+    }
+  },
+  {
+    "id": "CHAIN-177",
+    "title": "Automation Account runbook stores secrets in clear variables",
+    "severity": "HIGH",
+    "likelihood": "High",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_bak_002", "zt_wl_017"],
+    "narrative": "An Azure Automation Account runbook uses plaintext variables (not encrypted variables) to store service account passwords. Anyone with Automation Operator role can read the variables.",
+    "steps": [
+      {"number": 1, "actor": "Automation Operator", "action": "GET variables via Automation API; fields are plaintext.", "technique": "T1552.001", "enabled_by": "zt_bak_002", "gain": "Service account passwords."},
+      {"number": 2, "actor": "Attacker", "action": "Authenticate with stolen creds.", "technique": "T1078", "enabled_by": "zt_wl_017", "gain": "Service account access across the environment."}
+    ],
+    "blast_radius": {
+      "initial_access": "Automation Operator role.",
+      "max_privilege": "Service account scope.",
+      "data_at_risk": ["Wherever the service account is authorised"],
+      "services_at_risk": ["Everything the runbook automates"]
+    }
+  },
+  {
+    "id": "CHAIN-178",
+    "title": "Update Management exclusions for prod hosts",
+    "severity": "MEDIUM",
+    "likelihood": "High",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_bak_005", "zt_wl_008"],
+    "narrative": "Prod hosts are excluded from Update Management schedules to 'avoid outage risk'. They accumulate critical CVEs for months. One in-the-wild exploit yields fleet-wide compromise because the patches were deliberately skipped.",
+    "steps": [
+      {"number": 1, "actor": "CVE publication", "action": "High-impact CVE with public exploit.", "technique": "T1190", "enabled_by": "zt_bak_005", "gain": "Exploit for stale prod hosts."},
+      {"number": 2, "actor": "Attacker", "action": "Attack unpatched fleet; every excluded host is vulnerable.", "technique": "T1210", "enabled_by": "zt_wl_008", "gain": "Fleet compromise."}
+    ],
+    "blast_radius": {
+      "initial_access": "Public exploit + excluded hosts.",
+      "max_privilege": "RCE on prod fleet.",
+      "data_at_risk": ["Prod workload data"],
+      "services_at_risk": ["Every excluded host"]
+    }
+  },
+  {
+    "id": "CHAIN-179",
+    "title": "Instant Restore capacity exhausted — delayed recovery",
+    "severity": "LOW",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_bak_003", "zt_bak_004"],
+    "narrative": "Azure Backup Instant Restore capacity is below the amount needed to restore prod workloads within the target RTO. During a real incident, restores queue behind capacity limits; SLA blown.",
+    "steps": [
+      {"number": 1, "actor": "Restore event", "action": "Initiate recovery; capacity unavailable.", "technique": "T1499", "enabled_by": "zt_bak_003", "gain": "Restore queued."},
+      {"number": 2, "actor": "Business", "action": "RTO exceeded waiting for capacity.", "technique": "T1499", "enabled_by": "zt_bak_004", "gain": "Extended outage."}
+    ],
+    "blast_radius": {
+      "initial_access": "Restore-time capacity limit.",
+      "max_privilege": "Availability delay.",
+      "data_at_risk": ["Service uptime"],
+      "services_at_risk": ["Workloads queued for restore"]
+    }
+  },
+  {
+    "id": "CHAIN-180",
+    "title": "Backup agent version stale on prod VMs",
+    "severity": "MEDIUM",
+    "likelihood": "Medium",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_bak_005", "zt_wl_008"],
+    "narrative": "Azure Backup agent (MARS / MABS) on prod VMs is running a version from 18 months ago. A published vulnerability in the agent itself lets an attacker escalate privilege on the host during backup operations.",
+    "steps": [
+      {"number": 1, "actor": "Attacker", "action": "Exploit backup agent vulnerability.", "technique": "T1068", "enabled_by": "zt_bak_005", "gain": "Privilege escalation to SYSTEM on the VM."},
+      {"number": 2, "actor": "Attacker", "action": "Read any file on the host; access MI tokens.", "technique": "T1552.005", "enabled_by": "zt_wl_008", "gain": "Host + cloud compromise."}
+    ],
+    "blast_radius": {
+      "initial_access": "Backup agent CVE.",
+      "max_privilege": "Host SYSTEM.",
+      "data_at_risk": ["Host filesystem + MI token"],
+      "services_at_risk": ["Any cloud resource the VM's MI can reach"]
+    }
+  },
+  {
+    "id": "CHAIN-181",
+    "title": "DR plan untested — silent replication failures",
+    "severity": "MEDIUM",
+    "likelihood": "High",
+    "trigger_logic": "ALL",
+    "triggers": ["zt_bak_005", "zt_vis_001"],
+    "narrative": "No DR test has run in 12+ months. Replication has silently broken for some workloads (schema changes, new disks unprotected). During a real failover, restoration fails for the very workloads that matter most.",
+    "steps": [
+      {"number": 1, "actor": "Time", "action": "Configuration drift accumulates unchecked.", "technique": "T1499", "enabled_by": "zt_bak_005", "gain": "Silent DR decay."},
+      {"number": 2, "actor": "Disaster event", "action": "Failover reveals: critical DBs have no recent replica.", "technique": "T1490", "enabled_by": "zt_vis_001", "gain": "DR failure."}
+    ],
+    "blast_radius": {
+      "initial_access": "Disaster event.",
+      "max_privilege": "DR failure.",
+      "data_at_risk": ["Unreplicated critical workloads"],
+      "services_at_risk": ["All workloads depending on DR"]
+    }
+  }
+]

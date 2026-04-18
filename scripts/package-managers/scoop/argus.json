@@ -1,0 +1,29 @@
+{
+  "version": "__VERSION__",
+  "description": "Agentless, offline Azure CSPM + attack-chain analyser.",
+  "homepage": "https://github.com/vatsayanvivek/argus",
+  "license": "PolyForm-Strict-1.0.0",
+  "architecture": {
+    "64bit": {
+      "url": "https://github.com/vatsayanvivek/argus/releases/download/v__VERSION__/argus-windows-amd64.exe",
+      "hash": "__SHA256_WINDOWS_AMD64__",
+      "bin": [
+        ["argus-windows-amd64.exe", "argus"]
+      ]
+    }
+  },
+  "checkver": {
+    "github": "https://github.com/vatsayanvivek/argus"
+  },
+  "autoupdate": {
+    "architecture": {
+      "64bit": {
+        "url": "https://github.com/vatsayanvivek/argus/releases/download/v$version/argus-windows-amd64.exe"
+      }
+    },
+    "hash": {
+      "url": "https://github.com/vatsayanvivek/argus/releases/download/v$version/SHA256SUMS",
+      "regex": "([a-f0-9]+)\\s+argus-windows-amd64\\.exe"
+    }
+  }
+}

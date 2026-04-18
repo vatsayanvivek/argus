@@ -93,6 +93,50 @@ latest minor and is not affected.
   ..." footers in commits, PRs, release notes, or any artifact in
   this repo. The maintainer is the sole author of every commit.
 
+## Rule and chain unit tests
+
+Every Rego rule and every attack chain has a dedicated coverage test.
+The framework lives in `internal/engine/`:
+
+- `fixtures_test.go` — reusable snapshot builders (NSG shapes, storage
+  accounts, service principals, etc.). Add focused builders here when
+  a new rule needs a shape we don't have yet — keep rule_coverage_test.go
+  free of struct literals.
+- `rule_coverage_test.go` — table-driven cases asserting a rule fires
+  (or stays silent) for a specific snapshot. **Every new rule should
+  land with at least one positive and one negative case.**
+- `chain_coverage_test.go` — validates the correlator's trigger-match
+  logic (`ALL`, `ANY_TWO`, `ANCHOR_PLUS_ONE`), participation index,
+  and severity sort.
+
+Run locally:
+
+```bash
+make embed-prep
+go test ./internal/engine/... -run 'TestRuleCoverage|TestChain'
+```
+
+CI runs these on every push via `.github/workflows/test.yml` (no
+separate wiring — it's covered by `go test ./...`). A regression in
+rule loading, the Rego→Go input transform, or a rule's own syntax
+fails the suite before release.
+
+When adding a new Rego rule:
+
+1. Write the rule in `policies/azure/zt/<category>/`.
+2. Re-run `make embed-prep` so the embedded FS picks it up.
+3. Add `fires=true` and `fires=false` cases to `rule_coverage_test.go`
+   using (or extending) builders in `fixtures_test.go`.
+4. If the rule participates in a new attack chain, add the chain to
+   the correlator and one `ALL` / `ANCHOR_PLUS_ONE` case to
+   `chain_coverage_test.go`.
+
+Field naming reminder: the Rego input is snake_case (see
+`engine.TransformSnapshot`). Rules that use camelCase keys
+(`passwordCredentials`, `endDateTime`) silently never match against
+a real collected snapshot — the coverage tests are the guardrail
+against this class of bug.
+
 ## CI / release automation
 
 `.github/workflows/release.yml` runs on every tag push matching

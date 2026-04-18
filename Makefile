@@ -1,4 +1,4 @@
-.PHONY: build build-all test vet lint clean install run embed-prep windows-installer windows-versioninfo docker docker-push
+.PHONY: build build-all test vet lint clean install run embed-prep windows-installer windows-versioninfo docker docker-push docs docs-serve
 
 VERSION ?= 1.1.1
 LDFLAGS := -ldflags="-s -w -X main.Version=$(VERSION)"
@@ -66,6 +66,17 @@ docker-push: docker
 	docker tag argus:$(VERSION) ghcr.io/vatsayanvivek/argus:latest
 	docker push ghcr.io/vatsayanvivek/argus:$(VERSION)
 	docker push ghcr.io/vatsayanvivek/argus:latest
+
+# Regenerate the rule + chain catalog pages from the live source tree.
+# MkDocs Material is required for docs-serve; install with
+# `pip install mkdocs mkdocs-material pymdown-extensions`.
+docs:
+	go run ./cmd/gendocs
+	@cd docs && mkdocs build --strict 2>/dev/null || echo "(mkdocs not installed — pages regenerated, site not built)"
+
+# Live-reload the docs site at http://localhost:8000/.
+docs-serve: docs
+	cd docs && mkdocs serve
 
 # Builds the Windows GUI installer (argus-setup.exe) via NSIS.
 # Requires: makensis in PATH (brew install makensis on macOS).

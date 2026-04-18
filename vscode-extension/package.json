@@ -1,0 +1,88 @@
+{
+  "name": "argus-iac-scanner",
+  "displayName": "ARGUS IaC Scanner",
+  "description": "Inline Azure CSPM + attack-chain findings for your Bicep, ARM, and Terraform files. Runs argus locally — nothing leaves your machine.",
+  "version": "0.1.0",
+  "publisher": "vatsayanvivek",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Linters",
+    "Other"
+  ],
+  "keywords": [
+    "azure",
+    "security",
+    "iac",
+    "bicep",
+    "terraform",
+    "cspm",
+    "compliance"
+  ],
+  "activationEvents": [
+    "onLanguage:bicep",
+    "onLanguage:arm-template",
+    "onLanguage:terraform",
+    "onLanguage:json",
+    "onCommand:argus.scanWorkspace"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "argus.scanWorkspace",
+        "title": "ARGUS: Scan current workspace (IaC only)"
+      },
+      {
+        "command": "argus.scanFile",
+        "title": "ARGUS: Scan this file"
+      },
+      {
+        "command": "argus.clearDiagnostics",
+        "title": "ARGUS: Clear diagnostics"
+      }
+    ],
+    "configuration": {
+      "title": "ARGUS",
+      "properties": {
+        "argus.binaryPath": {
+          "type": "string",
+          "default": "argus",
+          "description": "Path to the argus binary. Default assumes it's on your PATH."
+        },
+        "argus.scanOnSave": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically rescan a file on save."
+        },
+        "argus.minSeverity": {
+          "type": "string",
+          "enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"],
+          "default": "LOW",
+          "description": "Lowest severity to show as a diagnostic."
+        },
+        "argus.complianceFilter": {
+          "type": "string",
+          "default": "",
+          "description": "Optional compliance filter passed to argus (soc2, hipaa, pci-dss-4, iso-27001)."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.3.0"
+  },
+  "license": "SEE LICENSE IN LICENSE",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/vatsayanvivek/argus.git"
+  }
+}

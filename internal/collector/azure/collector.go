@@ -22,11 +22,30 @@ import (
 
 // Collector is the top-level Azure collector. It owns one azidentity credential
 // and orchestrates the five sub-collectors (resources, identity, defender,
-// activity log, policy) in parallel.
+// activity log, policy) in parallel. A Checkpointer, if set, makes each
+// sub-collector resumable across process restarts — see checkpoint.go.
 type Collector struct {
-	subscriptionID string
-	tenantID       string
-	credential     *azidentity.DefaultAzureCredential
+	subscriptionID   string
+	tenantID         string
+	credential       *azidentity.DefaultAzureCredential
+	checkpoint       *Checkpointer
+	activityLogDays  int
+}
+
+// WithActivityLogDays sets how many days of Azure Monitor Activity Log the
+// collector pulls. Values <= 0 fall back to DefaultActivityLogDays (30).
+// Values > 90 are capped at 90 (the Azure backend's retention ceiling).
+func (c *Collector) WithActivityLogDays(days int) *Collector {
+	c.activityLogDays = days
+	return c
+}
+
+// WithCheckpoint attaches a Checkpointer so CollectAllWithProgress writes
+// each sub-collector's result to disk on success and skips sub-collectors
+// whose results already exist (resume). Pass nil to disable.
+func (c *Collector) WithCheckpoint(cp *Checkpointer) *Collector {
+	c.checkpoint = cp
+	return c
 }
 
 // NewCollector constructs a Collector bound to a subscription and tenant. It
@@ -162,6 +181,22 @@ func (c *Collector) CollectAllWithProgress(ctx context.Context, onProgress Progr
 		defer wg.Done()
 		defer recoverTo("resources", &mu, snapshot)
 		started := time.Now()
+
+		// Resume path: if a prior scan checkpoint exists, load it and skip
+		// the upstream Resource Graph calls entirely.
+		if c.checkpoint != nil && c.checkpoint.IsDone("resources") {
+			var ck checkpointResources
+			if err := c.checkpoint.Load("resources", &ck); err == nil {
+				mu.Lock()
+				snapshot.Resources = ck.Resources
+				snapshot.NetworkTopology = ck.Network
+				resourcesOK = true
+				mu.Unlock()
+				emit("resources", "resumed", fmt.Sprintf("%d resources (cached)", len(ck.Resources)), started, nil)
+				return
+			}
+		}
+
 		emit("resources", "started", "Enumerating subscription resources via Resource Graph", started, nil)
 		resources, network, err := collectResources(ctx, c.credential, c.subscriptionID)
 		if err != nil {
@@ -177,6 +212,11 @@ func (c *Collector) CollectAllWithProgress(ctx context.Context, onProgress Progr
 			resourcesOK = true
 		}
 		mu.Unlock()
+
+		if err == nil && c.checkpoint != nil {
+			_ = c.checkpoint.Save("resources", checkpointResources{Resources: resources, Network: network})
+		}
+
 		phase := "completed"
 		if err != nil {
 			phase = "failed"
@@ -190,6 +230,25 @@ func (c *Collector) CollectAllWithProgress(ctx context.Context, onProgress Progr
 		defer wg.Done()
 		defer recoverTo("identity", &mu, snapshot)
 		started := time.Now()
+
+		if c.checkpoint != nil && c.checkpoint.IsDone("identity") {
+			var ck checkpointIdentity
+			if err := c.checkpoint.Load("identity", &ck); err == nil {
+				mu.Lock()
+				snapshot.Identity = ck.Identity
+				if len(ck.MissingScopes) > 0 {
+					snapshot.GraphPermissionsLimited = true
+					snapshot.GraphPermissionsMissing = ck.MissingScopes
+				}
+				identityOK = true
+				mu.Unlock()
+				emit("identity", "resumed", fmt.Sprintf("%d users, %d groups, %d SPs (cached)",
+					len(ck.Identity.Users), len(ck.Identity.Groups), len(ck.Identity.ServicePrincipals)),
+					started, nil)
+				return
+			}
+		}
+
 		emit("identity", "started", "Fetching Entra ID users / groups / service principals / CAPs", started, nil)
 		identity, missingScopes, err := collectIdentity(ctx, c.credential, c.tenantID)
 		if err != nil {
@@ -209,6 +268,11 @@ func (c *Collector) CollectAllWithProgress(ctx context.Context, onProgress Progr
 			identityOK = true
 		}
 		mu.Unlock()
+
+		if err == nil && c.checkpoint != nil {
+			_ = c.checkpoint.Save("identity", checkpointIdentity{Identity: identity, MissingScopes: missingScopes})
+		}
+
 		phase := "completed"
 		if err != nil {
 			phase = "failed"
@@ -230,11 +294,28 @@ func (c *Collector) CollectAllWithProgress(ctx context.Context, onProgress Progr
 		defer wg.Done()
 		defer recoverTo("rbac", &mu, snapshot)
 		started := time.Now()
+
+		if c.checkpoint != nil && c.checkpoint.IsDone("rbac") {
+			var cached []models.RoleAssignment
+			if err := c.checkpoint.Load("rbac", &cached); err == nil {
+				mu.Lock()
+				azureRBAC = cached
+				mu.Unlock()
+				emit("rbac", "resumed", fmt.Sprintf("%d role assignments (cached)", len(cached)), started, nil)
+				return
+			}
+		}
+
 		emit("rbac", "started", "Collecting Azure RBAC assignments from ARM", started, nil)
 		rbac := collectAzureRBAC(ctx, c.credential, c.subscriptionID)
 		mu.Lock()
 		azureRBAC = rbac
 		mu.Unlock()
+
+		if c.checkpoint != nil {
+			_ = c.checkpoint.Save("rbac", rbac)
+		}
+
 		emit("rbac", "completed", fmt.Sprintf("%d role assignments", len(rbac)), started, nil)
 	}()
 
@@ -244,6 +325,26 @@ func (c *Collector) CollectAllWithProgress(ctx context.Context, onProgress Progr
 		defer wg.Done()
 		defer recoverTo("defender", &mu, snapshot)
 		started := time.Now()
+
+		if c.checkpoint != nil && c.checkpoint.IsDone("defender") {
+			var ck checkpointDefender
+			if err := c.checkpoint.Load("defender", &ck); err == nil {
+				mu.Lock()
+				if len(ck.Findings) > 0 {
+					snapshot.DefenderFindings = ck.Findings
+				}
+				if len(ck.Plans) > 0 {
+					snapshot.DefenderPlans = ck.Plans
+				}
+				snapshot.SecureScore = ck.SecureScore
+				defenderOK = true
+				mu.Unlock()
+				emit("defender", "resumed", fmt.Sprintf("%d findings, score %.0f/100 (cached)",
+					len(ck.Findings), ck.SecureScore), started, nil)
+				return
+			}
+		}
+
 		emit("defender", "started", "Querying Microsoft Defender for Cloud recommendations + secure score", started, nil)
 		findings, plans, secureScore, err := collectDefender(ctx, c.credential, c.subscriptionID)
 		if err != nil {
@@ -261,6 +362,13 @@ func (c *Collector) CollectAllWithProgress(ctx context.Context, onProgress Progr
 			defenderOK = true
 		}
 		mu.Unlock()
+
+		if err == nil && c.checkpoint != nil {
+			_ = c.checkpoint.Save("defender", checkpointDefender{
+				Findings: findings, Plans: plans, SecureScore: secureScore,
+			})
+		}
+
 		phase := "completed"
 		if err != nil {
 			phase = "failed"
@@ -275,8 +383,27 @@ func (c *Collector) CollectAllWithProgress(ctx context.Context, onProgress Progr
 		defer wg.Done()
 		defer recoverTo("activitylog", &mu, snapshot)
 		started := time.Now()
-		emit("activitylog", "started", "Pulling Activity Log events (30-day window)", started, nil)
-		events, err := collectActivityLog(ctx, c.credential, c.subscriptionID)
+
+		if c.checkpoint != nil && c.checkpoint.IsDone("activitylog") {
+			var cached []models.ActivityEvent
+			if err := c.checkpoint.Load("activitylog", &cached); err == nil {
+				mu.Lock()
+				if len(cached) > 0 {
+					snapshot.ActivityLog = cached
+				}
+				activityOK = true
+				mu.Unlock()
+				emit("activitylog", "resumed", fmt.Sprintf("%d events (cached)", len(cached)), started, nil)
+				return
+			}
+		}
+
+		days := c.activityLogDays
+		if days <= 0 {
+			days = DefaultActivityLogDays
+		}
+		emit("activitylog", "started", fmt.Sprintf("Pulling Activity Log events (%d-day window)", days), started, nil)
+		events, err := collectActivityLog(ctx, c.credential, c.subscriptionID, days)
 		if err != nil {
 			appendErr("activitylog", err)
 		}
@@ -288,6 +415,11 @@ func (c *Collector) CollectAllWithProgress(ctx context.Context, onProgress Progr
 			activityOK = true
 		}
 		mu.Unlock()
+
+		if err == nil && c.checkpoint != nil {
+			_ = c.checkpoint.Save("activitylog", events)
+		}
+
 		phase := "completed"
 		if err != nil {
 			phase = "failed"
@@ -301,6 +433,21 @@ func (c *Collector) CollectAllWithProgress(ctx context.Context, onProgress Progr
 		defer wg.Done()
 		defer recoverTo("policy", &mu, snapshot)
 		started := time.Now()
+
+		if c.checkpoint != nil && c.checkpoint.IsDone("policy") {
+			var cached []models.PolicyResult
+			if err := c.checkpoint.Load("policy", &cached); err == nil {
+				mu.Lock()
+				if len(cached) > 0 {
+					snapshot.PolicyCompliance = cached
+				}
+				policyOK = true
+				mu.Unlock()
+				emit("policy", "resumed", fmt.Sprintf("%d policies (cached)", len(cached)), started, nil)
+				return
+			}
+		}
+
 		emit("policy", "started", "Evaluating Azure Policy compliance assignments", started, nil)
 		results, err := collectPolicy(ctx, c.credential, c.subscriptionID)
 		if err != nil {
@@ -314,6 +461,11 @@ func (c *Collector) CollectAllWithProgress(ctx context.Context, onProgress Progr
 			policyOK = true
 		}
 		mu.Unlock()
+
+		if err == nil && c.checkpoint != nil {
+			_ = c.checkpoint.Save("policy", results)
+		}
+
 		phase := "completed"
 		if err != nil {
 			phase = "failed"
