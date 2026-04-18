@@ -248,7 +248,11 @@ func ScanWhatIfBytes(payload []byte, pseudoSub, pseudoTenant string) (*Result, e
 	}
 	findings := filterToARMScope(allFindings, snap)
 
-	res := &Result{Snapshot: snap, Findings: findings}
+	res := &Result{
+		Snapshot: snap,
+		Findings: findings,
+		Chains:   correlateIaCChains(findings, snap),
+	}
 	countSeverity(&res.Counts, findings)
 	return res, nil
 }

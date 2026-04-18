@@ -492,10 +492,30 @@ argus serve --addr 0.0.0.0:8080               # bind to all interfaces (use with
 
 Views: Overview, Findings (filter / sort), Chains (drill-down narrative), Attack graph (interactive SVG), Compliance posture, Drift diff, Scan history. A **Run scan** button triggers `argus scan` in the background.
 
-### `argus iac` — pre-deployment IaC scan (no Azure needed)
+### `argus iac` — pre-deployment blindspot analysis
+
+Unlike Checkov / tfsec which stop at flat rule findings, `argus iac` **runs the attack-chain correlator against your planned state** and tells you which chains the plan will introduce once applied. Example on a 2-resource Terraform plan with a public storage account + open NSG:
+
+```
+→ format: Terraform plan
+→ 2 resources evaluated
+→ 23 rule findings (3 CRITICAL, 7 HIGH, 12 MEDIUM, 1 LOW)
+→ 4 attack chains this plan WILL introduce once applied
+
+╔══════════════════════════════════════════════════════════════════╗
+║  BLINDSPOTS — attack chains your plan creates when applied       ║
+╚══════════════════════════════════════════════════════════════════╝
+
+●  CHAIN-005  Public storage no diagnostics to silent exfil
+    severity: CRITICAL   likelihood: High   logic: ALL
+    [narrative explains how the misconfigs combine...]
+    triggered by: zt_data_001, zt_vis_001, zt_data_006
+    break the chain → remediate any of: zt_data_001, zt_vis_001
+```
 
 ```bash
 # Terraform plan
+terraform plan -out plan.out
 terraform show -json plan.out > plan.json
 argus iac plan.json
 
@@ -506,12 +526,15 @@ argus iac template.json
 bicep build main.bicep
 argus iac main.json
 
-# ARM what-if (effective post-deploy state)
+# ARM what-if (effective post-deploy state against a LIVE target)
 az deployment group what-if --output json --resource-group rg --template-file main.bicep > whatif.json
 argus iac whatif.json
 
-# CI gate on IaC
+# CI gate on IaC (exit 2 if CRITICAL or HIGH chain/finding)
 argus iac plan.json --fail-on HIGH
+
+# Machine-readable — includes chains + findings + counts
+argus iac plan.json --output json
 ```
 
 ### `argus check-permissions` — preflight Graph + ARM scopes

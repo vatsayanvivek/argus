@@ -59,7 +59,14 @@ type Result struct {
 	Plan     *Plan
 	Snapshot *models.AzureSnapshot
 	Findings []models.Finding
-	Format   string
+	// Chains is the set of attack-chain patterns the correlator fired
+	// against the synthetic IaC snapshot. Pre-deployment chain detection
+	// is the IaC scanner's primary differentiator: individual-rule
+	// coverage overlaps with Checkov / tfsec / terrascan, but nobody
+	// else correlates planned misconfigurations into named blindspot
+	// stories before apply.
+	Chains []models.AttackChain
+	Format string
 
 	Counts SeverityCounts
 }
@@ -187,7 +194,13 @@ func scanTerraformBytes(payload []byte, pseudoSub, pseudoTenant string) (*Result
 	// cannot configure tenant posture.
 	findings := filterToPlanScope(allFindings, plan)
 
-	res := &Result{Plan: plan, Snapshot: snap, Findings: findings, Format: string(FormatTerraform)}
+	res := &Result{
+		Plan:     plan,
+		Snapshot: snap,
+		Findings: findings,
+		Chains:   correlateIaCChains(findings, snap),
+		Format:   string(FormatTerraform),
+	}
 	for _, f := range findings {
 		switch f.Severity {
 		case "CRITICAL":
@@ -201,4 +214,26 @@ func scanTerraformBytes(payload []byte, pseudoSub, pseudoTenant string) (*Result
 		}
 	}
 	return res, nil
+}
+
+// correlateIaCChains runs the attack-chain correlator over the synthetic
+// IaC snapshot and its findings. This is what moves ARGUS's IaC scan from
+// "another CIS rule checker" into its actual lane: naming the blindspots a
+// plan will introduce once applied, not just listing rule violations.
+//
+// The same correlator powers live scans; the only semantic shift is framing
+// — chains for an IaC scan describe what WILL fire after apply, not what
+// already fires. Output layers (text, JSON, SARIF, HTML) re-word the tense
+// so the user is never confused about whether the chain is theoretical or
+// already exploitable.
+func correlateIaCChains(findings []models.Finding, snap *models.AzureSnapshot) []models.AttackChain {
+	if len(findings) == 0 || snap == nil {
+		return nil
+	}
+	c := engine.NewCorrelator()
+	chains := c.Correlate(findings, snap)
+	// Mark participants so the rendered finding list can annotate which
+	// findings feed which chain — same UX affordance as a live scan.
+	c.MarkChainParticipants(findings, chains)
+	return chains
 }

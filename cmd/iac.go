@@ -109,14 +109,16 @@ func runIaC(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-// printIaCText prints a concise, human-readable summary to stdout.
-// The format header + resource count come from whichever parser ran;
-// for Terraform we use PlannedResources(), for ARM/Bicep/what-if we
-// use the snapshot resource count.
+// printIaCText prints the IaC scan summary. The output leads with
+// **attack chains** — the unique deliverable of an ARGUS IaC scan —
+// before listing individual rule findings. Chain-free scans fall back to
+// the severity-grouped finding list.
 func printIaCText(r *iac.Result) {
 	red := color.New(color.FgRed, color.Bold).SprintFunc()
 	yellow := color.New(color.FgYellow, color.Bold).SprintFunc()
 	green := color.New(color.FgGreen, color.Bold).SprintFunc()
+	cyan := color.New(color.FgCyan, color.Bold).SprintFunc()
+	bold := color.New(color.Bold).SprintFunc()
 	dim := color.New(color.Faint).SprintFunc()
 
 	formatLabel := iacFormatLabel(r)
@@ -129,7 +131,7 @@ func printIaCText(r *iac.Result) {
 
 	fmt.Printf("\n%s format: %s\n", dim("→"), formatLabel)
 	fmt.Printf("%s %d resources evaluated\n", dim("→"), resourceCount)
-	fmt.Printf("%s %d findings (%s CRITICAL, %s HIGH, %d MEDIUM, %d LOW)\n\n",
+	fmt.Printf("%s %d rule findings (%s CRITICAL, %s HIGH, %d MEDIUM, %d LOW)\n",
 		dim("→"),
 		len(r.Findings),
 		red(fmt.Sprintf("%d", r.Counts.Critical)),
@@ -137,22 +139,67 @@ func printIaCText(r *iac.Result) {
 		r.Counts.Medium,
 		r.Counts.Low,
 	)
+	fmt.Printf("%s %d attack chains this plan WILL introduce once applied\n\n",
+		dim("→"),
+		len(r.Chains),
+	)
 
+	// ----- 1. Lead with chains (the blindspot story) -----
+	if len(r.Chains) > 0 {
+		fmt.Println(cyan("╔══════════════════════════════════════════════════════════════════╗"))
+		fmt.Println(cyan("║  BLINDSPOTS — attack chains your plan creates when applied       ║"))
+		fmt.Println(cyan("╚══════════════════════════════════════════════════════════════════╝"))
+		fmt.Println()
+		for _, c := range r.Chains {
+			sev := c.Severity
+			header := fmt.Sprintf("%s  %s", bold(c.ID), c.Title)
+			switch strings.ToUpper(sev) {
+			case "CRITICAL":
+				fmt.Printf("%s  %s\n", red("●"), header)
+			case "HIGH":
+				fmt.Printf("%s  %s\n", yellow("●"), header)
+			default:
+				fmt.Printf("%s  %s\n", dim("●"), header)
+			}
+			fmt.Printf("    %s %s   %s %s   %s %s\n",
+				dim("severity:"), sev,
+				dim("likelihood:"), nonEmptyIac(c.Likelihood, "—"),
+				dim("logic:"), c.TriggerLogic)
+			if c.Narrative != "" {
+				fmt.Printf("    %s\n", dim(wrapIac(c.Narrative, 70, "    ")))
+			}
+			if len(c.TriggerFindings) > 0 {
+				fmt.Printf("    %s %s\n", dim("triggered by:"), strings.Join(c.TriggerFindings, ", "))
+			}
+			if len(c.MinimalFixSet) > 0 {
+				fmt.Printf("    %s remediate any of: %s\n",
+					green("break the chain →"), strings.Join(c.MinimalFixSet, ", "))
+			}
+			fmt.Println()
+		}
+	}
+
+	// ----- 2. Supporting rule findings -----
+	if len(r.Findings) == 0 && len(r.Chains) == 0 {
+		fmt.Println(green("✓ No policy violations and no attack chains in the planned state."))
+		return
+	}
 	if len(r.Findings) == 0 {
-		fmt.Println(green("✓ No policy violations in the planned state."))
 		return
 	}
 
-	// Group findings by severity bucket and print.
+	fmt.Println(dim("───── supporting rule findings ─────"))
 	grouped := map[string][]string{}
 	for _, f := range r.Findings {
-		// Extract the terraform address from the synthesised resource ID
-		// (everything after the last slash).
 		tfAddr := f.ResourceName
 		if slash := strings.LastIndex(f.ResourceID, "/"); slash >= 0 {
 			tfAddr = f.ResourceID[slash+1:]
 		}
-		line := fmt.Sprintf("  %-12s %-18s %s  %s", f.Severity, f.ID, tfAddr, f.Title)
+		chainsTag := ""
+		if len(f.ParticipatesInChains) > 0 {
+			chainsTag = fmt.Sprintf("  [%s]", strings.Join(f.ParticipatesInChains, ","))
+		}
+		line := fmt.Sprintf("  %-18s %s  %s%s", f.ID, tfAddr, f.Title, chainsTag)
 		grouped[f.Severity] = append(grouped[f.Severity], line)
 	}
 
@@ -175,6 +222,38 @@ func printIaCText(r *iac.Result) {
 		}
 		fmt.Println()
 	}
+}
+
+func nonEmptyIac(s, def string) string {
+	if strings.TrimSpace(s) == "" {
+		return def
+	}
+	return s
+}
+
+// wrapIac wraps a narrative to the given width, indenting continuation lines
+// with `prefix` so the chain card reads as a single block in the terminal.
+func wrapIac(s string, width int, prefix string) string {
+	words := strings.Fields(s)
+	var b strings.Builder
+	line := 0
+	for i, w := range words {
+		if line+len(w)+1 > width && line > 0 {
+			b.WriteString("\n")
+			b.WriteString(prefix)
+			line = 0
+		}
+		if line > 0 {
+			b.WriteString(" ")
+			line++
+		}
+		b.WriteString(w)
+		line += len(w)
+		if i == len(words)-1 {
+			break
+		}
+	}
+	return b.String()
 }
 
 func writeIaCJSON(r *iac.Result) error {
@@ -202,6 +281,7 @@ func writeIaCJSON(r *iac.Result) error {
 	payload := map[string]interface{}{
 		"plan":     meta,
 		"counts":   r.Counts,
+		"chains":   r.Chains,
 		"findings": r.Findings,
 	}
 	enc := json.NewEncoder(f)
