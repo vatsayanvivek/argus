@@ -340,10 +340,19 @@ jobs:
           name: installer
           path: dist/
 
+      # Attach the helper scripts to the release so users who installed
+      # via the EXE (and therefore never cloned the repo) can still grab
+      # them with a single curl / iwr command:
+      #
+      #   iwr https://github.com/vatsayanvivek/argus/releases/latest/download/setup-graph-permissions.ps1 | iex
+      #   curl -L -o setup-graph-permissions.sh https://github.com/vatsayanvivek/argus/releases/latest/download/setup-graph-permissions.sh
       - uses: actions/checkout@v4
         with:
           path: repo
-          sparse-checkout: scripts/install.ps1
+          sparse-checkout: |
+            scripts/install.ps1
+            scripts/setup-graph-permissions.sh
+            scripts/setup-graph-permissions.ps1
           sparse-checkout-cone-mode: false
 
       - name: Publish GitHub release
@@ -360,5 +369,7 @@ jobs:
             dist/SHA256SUMS
             dist/*.sbom.spdx.json
             repo/scripts/install.ps1
+            repo/scripts/setup-graph-permissions.sh
+            repo/scripts/setup-graph-permissions.ps1
           generate_release_notes: true
           fail_on_unmatched_files: true

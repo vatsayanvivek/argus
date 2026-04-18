@@ -426,31 +426,46 @@ func printSummary(
 		subName = snapshot.SubscriptionID
 	}
 
-	// Loud Microsoft Graph permissions warning. This is critical
-	// because without admin Graph scopes, several identity rules
-	// (notably CHAIN-002, App Registration high-privilege Graph
-	// permissions) cannot be evaluated and the user might walk away
-	// thinking they're safe when they haven't even been checked.
+	// Microsoft Graph permissions coverage note. This is NOT an
+	// error — the scan produced useful results; a subset of rules
+	// simply couldn't evaluate because the scanning identity lacks
+	// certain Graph scopes. Framed as informational ("here's what
+	// you scanned; here's what needs an extra scope to also scan")
+	// rather than alarming.
 	if snapshot.GraphPermissionsLimited {
+		cyanBold := color.New(color.FgHiCyan, color.Bold).SprintFunc()
+		blueBold := color.New(color.FgHiBlue, color.Bold).SprintFunc()
+		whiteBold := color.New(color.FgHiWhite, color.Bold).SprintFunc()
+		dim := color.New(color.Faint).SprintFunc()
+
 		fmt.Println()
-		fmt.Println(red("⚠️  ═══════════════════════════════════════════════════════════"))
-		fmt.Println(red("⚠️   LIMITED MICROSOFT GRAPH ACCESS"))
-		fmt.Println(red("⚠️  ═══════════════════════════════════════════════════════════"))
-		fmt.Println(yellow("⚠️   The scanning identity does not have full Microsoft Graph"))
-		fmt.Println(yellow("⚠️   access. The following rules COULD NOT be evaluated:"))
-		fmt.Println(yellow("⚠️"))
-		fmt.Println(yellow("⚠️     • zt_id_011 / cis_1_15  — App Registration high-priv perms"))
-		fmt.Println(yellow("⚠️     • zt_id_003 / zt_id_007 — PIM analysis"))
-		fmt.Println(yellow("⚠️     • zt_id_004 / zt_id_006 — Conditional Access policies"))
-		fmt.Println(yellow("⚠️     • zt_id_010              — Access reviews"))
-		fmt.Println(yellow("⚠️"))
-		fmt.Println(yellow("⚠️   This means CHAIN-002 (App Registration takeover) is NOT being checked."))
-		fmt.Println(yellow("⚠️"))
-		fmt.Print(yellow("⚠️   Missing scopes: "))
-		fmt.Println(red(strings.Join(snapshot.GraphPermissionsMissing, ", ")))
-		fmt.Println(yellow("⚠️"))
-		fmt.Println(yellow("⚠️   Fix: run scripts/setup-graph-permissions.sh and re-scan."))
-		fmt.Println(red("⚠️  ═══════════════════════════════════════════════════════════"))
+		fmt.Println(cyanBold("╭─ Partial coverage — some checks need extra Graph scopes ────────────────╮"))
+		fmt.Println(cyanBold("│") + "                                                                         " + cyanBold("│"))
+		line := fmt.Sprintf("  %s Your scan ran successfully and the results below are valid.", blueBold("ℹ"))
+		fmt.Printf("%s%-74s%s\n", cyanBold("│"), line[:min(len(line), 74)], cyanBold("│"))
+		fmt.Printf("%s%-74s%s\n", cyanBold("│"), "  These additional checks were skipped because the scanning identity", cyanBold("│"))
+		fmt.Printf("%s%-74s%s\n", cyanBold("│"), "  doesn't yet have the Graph scope they need:", cyanBold("│"))
+		fmt.Println(cyanBold("│") + "                                                                         " + cyanBold("│"))
+		fmt.Printf("%s%-74s%s\n", cyanBold("│"), "    • App Registration high-priv permissions (zt_id_011, cis_1_15)", cyanBold("│"))
+		fmt.Printf("%s%-74s%s\n", cyanBold("│"), "    • PIM analysis (zt_id_003, zt_id_007)", cyanBold("│"))
+		fmt.Printf("%s%-74s%s\n", cyanBold("│"), "    • Conditional Access policies (zt_id_004, zt_id_006)", cyanBold("│"))
+		fmt.Printf("%s%-74s%s\n", cyanBold("│"), "    • Access reviews (zt_id_010)", cyanBold("│"))
+		fmt.Printf("%s%-74s%s\n", cyanBold("│"), "    • Chain detection that needs the above (CHAIN-002)", cyanBold("│"))
+		fmt.Println(cyanBold("│") + "                                                                         " + cyanBold("│"))
+		missing := strings.Join(snapshot.GraphPermissionsMissing, ", ")
+		if len(missing) > 66 {
+			missing = missing[:63] + "..."
+		}
+		fmt.Printf("%s  %s %-70s%s\n", cyanBold("│"), whiteBold("Scopes to add:"), missing, cyanBold("│"))
+		fmt.Println(cyanBold("│") + "                                                                         " + cyanBold("│"))
+		// The scripts ship with each release so users who installed
+		// via the EXE (and never cloned the repo) can still fetch
+		// them directly. Short URLs below resolve to the latest tag.
+		fmt.Printf("%s  %s %-70s%s\n", cyanBold("│"), dim("Grant (bash):    "), dim("curl -LO https://github.com/vatsayanvivek/argus/releases/latest/download/setup-graph-permissions.sh"), cyanBold("│"))
+		fmt.Printf("%s  %s %-70s%s\n", cyanBold("│"), dim("Grant (PowerSh): "), dim("iwr https://github.com/vatsayanvivek/argus/releases/latest/download/setup-graph-permissions.ps1 -OutFile grant.ps1"), cyanBold("│"))
+		fmt.Printf("%s  %s %-70s%s\n", cyanBold("│"), dim("Or verify only:  "), dim("argus check-permissions --tenant <id>"), cyanBold("│"))
+		fmt.Println(cyanBold("│") + "                                                                         " + cyanBold("│"))
+		fmt.Println(cyanBold("╰─────────────────────────────────────────────────────────────────────────╯"))
 		fmt.Println()
 	}
 

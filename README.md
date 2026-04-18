@@ -365,7 +365,26 @@ argus check-permissions --tenant <id>
 argus check-permissions --tenant <id> --json   # machine-readable for CI
 ```
 
-`scripts/setup-graph-permissions.sh` will grant all of these to a Service Principal in one run.
+Two ready-made scripts grant all of these to a Service Principal in a single run. They ship as release assets so you don't need to clone the repo — pick the one that matches your shell:
+
+**macOS / Linux (bash / zsh):**
+```bash
+# Download
+curl -LO https://github.com/vatsayanvivek/argus/releases/latest/download/setup-graph-permissions.sh
+chmod +x setup-graph-permissions.sh
+# Run
+./setup-graph-permissions.sh --subscription <sub-id> --tenant <tenant-id>
+```
+
+**Windows PowerShell:**
+```powershell
+# Download
+iwr https://github.com/vatsayanvivek/argus/releases/latest/download/setup-graph-permissions.ps1 -OutFile setup-graph-permissions.ps1
+# Run
+.\setup-graph-permissions.ps1 -SubscriptionId <sub-id> -TenantId <tenant-id>
+```
+
+Both scripts use the Azure CLI (`az`) — no PowerShell Az module, no bash-specific tooling. They're functionally identical; one is idiomatic for each shell. Both are visible on the [releases page](https://github.com/vatsayanvivek/argus/releases/latest) for every release.
 
 ---
 
@@ -573,7 +592,10 @@ Docker Desktop isn't running. Start it, or use the native binary via `argus inst
 `az login` on the host, or set `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET` for a Service Principal.
 
 **Graph permissions limited warning in the report**:
-Some rules couldn't run because the scanning identity lacks a Graph scope. `argus check-permissions --tenant <id>` shows exactly which. Grant via `scripts/setup-graph-permissions.sh`.
+Some rules couldn't run because the scanning identity lacks a Graph scope. `argus check-permissions --tenant <id>` shows exactly which. Grant them with one download + run — no repo clone needed, the scripts ship as release assets:
+
+- **macOS / Linux**: `curl -LO https://github.com/vatsayanvivek/argus/releases/latest/download/setup-graph-permissions.sh && bash setup-graph-permissions.sh --subscription <id> --tenant <id>`
+- **Windows PowerShell**: `iwr https://github.com/vatsayanvivek/argus/releases/latest/download/setup-graph-permissions.ps1 -OutFile grant.ps1; .\grant.ps1 -SubscriptionId <id> -TenantId <id>`
 
 **macOS: "cannot be opened because the developer cannot be verified"**:
 Right-click → Open → Open. Or `xattr -d com.apple.quarantine argus-darwin-arm64`.

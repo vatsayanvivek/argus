@@ -18,61 +18,72 @@ import (
 // the long parallel collection phase of a scan. Each sub-collector
 // (resources, identity, rbac, defender, activitylog, policy) gets a
 // line that updates in place as it transitions running → completed
-// / failed. An elapsed timer for the overall scan keeps the user
-// confident the tool isn't stuck.
+// / failed.
+//
+// Key behaviours:
+//
+//   * A background ticker re-renders every 250 ms so elapsed-time
+//     counters keep advancing visibly even when no ProgressEvent has
+//     fired. Previously the UI would freeze at "running 1m10s" for
+//     20 minutes if the underlying API call hung.
+//   * A Braille-cell spinner animates next to every `running` row so
+//     the user always has visual evidence that something is
+//     happening, not just a stale elapsed counter.
+//   * Done sub-collectors render with their final elapsed time (not
+//     the ever-growing clock) so the table tells the truth.
 //
 // Terminal handling:
 //
 //   - If stdout is a TTY that supports ANSI, we redraw the block in
 //     place using cursor-up and clear-line escape codes.
-//   - If stdout isn't a TTY (piped to a file, CI runner without PTY,
-//     Windows legacy cmd.exe without VT processing), we fall back to
-//     simple append-only event lines so nothing is lost.
-//
-// This renderer directly replaces the v1.8.x 7-step progress bar
-// that froze at 14% during CollectAll.
+//   - If stdout isn't a TTY (piped to a file, CI runner without PTY),
+//     the ticker loop is suppressed and we only render on event, so
+//     piped output stays compact.
 type scanProgressRenderer struct {
-	mu        sync.Mutex
-	started   time.Time
-	states    map[string]*collectorState
-	order     []string // render order, deterministic
-	ttyMode   bool
-	out       io.Writer
+	mu         sync.Mutex
+	started    time.Time
+	states     map[string]*collectorState
+	order      []string
+	ttyMode    bool
+	out        io.Writer
 	linesDrawn int
-	done      bool
+	done       bool
+
+	// Ticker machinery.
+	tickDone  chan struct{}
+	tickWG    sync.WaitGroup
+	spinFrame int
 }
 
 // collectorState is the per-sub-collector status the renderer tracks.
 type collectorState struct {
-	name      string
-	label     string
-	phase     string // pending | running | done | failed
-	detail    string
-	started   time.Time
-	finished  time.Time
-	err       error
+	name     string
+	label    string
+	phase    string // pending | running | done | failed
+	detail   string
+	started  time.Time
+	finished time.Time
+	err      error
 }
 
+// Braille-cell spinner frames. These render cleanly in every modern
+// terminal (Windows Terminal, iTerm2, GNOME Terminal, PowerShell 5+,
+// VS Code integrated) and don't reserve disproportionate width.
+var spinnerFrames = []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
+
 // newScanProgressRenderer builds a renderer preconfigured with the 6
-// sub-collectors ARGUS runs in parallel during CollectAll. The caller
-// invokes OnEvent as a ProgressCallback and Done when collection
-// finishes.
+// sub-collectors ARGUS runs in parallel during CollectAll.
 func newScanProgressRenderer(out io.Writer) *scanProgressRenderer {
 	r := &scanProgressRenderer{
-		started: time.Now(),
-		states:  map[string]*collectorState{},
-		out:     out,
+		started:  time.Now(),
+		states:   map[string]*collectorState{},
+		out:      out,
+		tickDone: make(chan struct{}),
 	}
-
-	// Detect TTY. If stdout isn't attached to a terminal (piped,
-	// redirected), we can't do in-place updates — degrade gracefully.
 	if f, ok := out.(*os.File); ok {
 		r.ttyMode = term.IsTerminal(int(f.Fd()))
 	}
 
-	// The 6 sub-collectors, in display order. Labels are human-
-	// readable; the internal names must match what
-	// CollectAllWithProgress emits.
 	defs := []struct {
 		name, label string
 	}{
@@ -91,15 +102,14 @@ func newScanProgressRenderer(out io.Writer) *scanProgressRenderer {
 }
 
 // OnEvent is the ProgressCallback passed to CollectAllWithProgress.
-// Safe to call from multiple goroutines — internally serialised by
-// mu.
+// Safe to call from multiple goroutines — internally serialised by mu.
 func (r *scanProgressRenderer) OnEvent(e azure.ProgressEvent) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	st, ok := r.states[e.Name]
 	if !ok {
-		return // unknown sub-collector — ignore silently
+		return
 	}
 	switch e.Phase {
 	case "started":
@@ -119,84 +129,242 @@ func (r *scanProgressRenderer) OnEvent(e azure.ProgressEvent) {
 	r.render()
 }
 
-// Start emits the initial table before any events fire, so the user
-// sees the plan immediately rather than a blank terminal while the
-// first collector starts up.
+// Start draws the initial table and, on a TTY, launches the animation
+// ticker so elapsed times + spinner frames update at 4 Hz.
 func (r *scanProgressRenderer) Start() {
 	r.mu.Lock()
-	defer r.mu.Unlock()
 	r.render()
+	r.mu.Unlock()
+
+	if !r.ttyMode {
+		return
+	}
+	r.tickWG.Add(1)
+	go func() {
+		defer r.tickWG.Done()
+		t := time.NewTicker(250 * time.Millisecond)
+		defer t.Stop()
+		for {
+			select {
+			case <-r.tickDone:
+				return
+			case <-t.C:
+				r.mu.Lock()
+				if !r.done && r.hasRunningLocked() {
+					r.spinFrame++
+					r.render()
+				}
+				r.mu.Unlock()
+			}
+		}
+	}()
 }
 
-// Done finalises the renderer, re-rendering one last time so the
-// "elapsed" column reflects total scan duration. After Done, OnEvent
-// becomes a no-op.
+// hasRunningLocked reports whether any sub-collector is still
+// running. When everything has either completed or failed, the ticker
+// stops redrawing to avoid burning CPU for no reason. Caller must
+// hold r.mu.
+func (r *scanProgressRenderer) hasRunningLocked() bool {
+	for _, st := range r.states {
+		if st.phase == "running" || st.phase == "pending" {
+			return true
+		}
+	}
+	return false
+}
+
+// Done stops the ticker, re-renders one last time with final elapsed
+// times, and drops a trailing newline so subsequent output doesn't
+// clobber the last row.
 func (r *scanProgressRenderer) Done() {
 	r.mu.Lock()
-	defer r.mu.Unlock()
 	r.done = true
 	r.render()
-	// Drop a final newline so subsequent stdout writes don't clobber
-	// the last table row.
+	r.mu.Unlock()
+
+	if r.ttyMode {
+		close(r.tickDone)
+		r.tickWG.Wait()
+	}
 	fmt.Fprintln(r.out)
 }
 
-// render draws the table. In TTY mode it moves the cursor up by the
-// number of lines previously drawn, then emits fresh rows. In non-TTY
-// mode it just appends a new block — noisier but works everywhere.
+// render draws the table in place. TTY mode uses ANSI cursor-up +
+// clear-to-end-of-screen to redraw at the same position; non-TTY
+// appends a fresh block (noisier, but stays legible in CI logs).
 func (r *scanProgressRenderer) render() {
-	green := color.New(color.FgGreen).SprintFunc()
-	red := color.New(color.FgRed).SprintFunc()
-	yellow := color.New(color.FgYellow).SprintFunc()
+	green := color.New(color.FgHiGreen, color.Bold).SprintFunc()
+	red := color.New(color.FgHiRed, color.Bold).SprintFunc()
+	cyan := color.New(color.FgHiCyan, color.Bold).SprintFunc()
+	magenta := color.New(color.FgHiMagenta, color.Bold).SprintFunc()
 	dim := color.New(color.Faint).SprintFunc()
-	bold := color.New(color.Bold).SprintFunc()
+	white := color.New(color.FgHiWhite, color.Bold).SprintFunc()
 
 	if r.ttyMode && r.linesDrawn > 0 {
-		// Cursor-up N lines + clear to end of screen. ANSI escapes:
-		//   ESC[nA  — up n lines
-		//   ESC[0J  — clear from cursor to end of screen
+		// Cursor-up N lines + clear from cursor to end of screen.
 		fmt.Fprintf(r.out, "\033[%dA\033[0J", r.linesDrawn)
 	}
 
 	lines := 0
-	// Header — overall elapsed time.
-	fmt.Fprintf(r.out, "%s %s %s\n",
-		bold("ARGUS scan"),
-		dim("│"),
-		dim(fmt.Sprintf("elapsed %s", time.Since(r.started).Round(time.Second))))
-	lines++
-	// Divider — matches the header width visually.
-	fmt.Fprintln(r.out, dim(strings.Repeat("─", 60)))
+	totalElapsed := time.Since(r.started).Round(time.Second)
+
+	// Count done / failed / running for the header summary.
+	doneCount, failedCount, runningCount, pendingCount := 0, 0, 0, 0
+	for _, st := range r.states {
+		switch st.phase {
+		case "done":
+			doneCount++
+		case "failed":
+			failedCount++
+		case "running":
+			runningCount++
+		case "pending":
+			pendingCount++
+		}
+	}
+	totalCount := len(r.states)
+
+	// Box-top header. Double-line characters for the outer frame.
+	boxWidth := 68
+	fmt.Fprintln(r.out, cyan("╔"+strings.Repeat("═", boxWidth-2)+"╗"))
 	lines++
 
-	// Per-collector rows, rendered in the order declared at
-	// construction — deterministic regardless of which goroutine
-	// wins the race to finish first.
+	// Title row: ARGUS wordmark + elapsed time.
+	leftSide := fmt.Sprintf("  %s collecting Azure tenant state", cyan("▶"))
+	rightSide := dim(fmt.Sprintf("elapsed %s  ", totalElapsed))
+	// Need to account for ANSI escape width when padding. Strip colour
+	// codes before measuring, then pad manually.
+	leftPlain := stripANSI(leftSide)
+	rightPlain := stripANSI(rightSide)
+	pad := boxWidth - 2 - len(leftPlain) - len(rightPlain)
+	if pad < 0 {
+		pad = 0
+	}
+	fmt.Fprintf(r.out, "%s%s%s%s%s\n", cyan("║"), leftSide, strings.Repeat(" ", pad), rightSide, cyan("║"))
+	lines++
+
+	// Counter row: X done, Y running, Z pending
+	statusLine := fmt.Sprintf("  %s %d/%d done",
+		statusGlyph(doneCount, totalCount, failedCount), doneCount, totalCount)
+	if runningCount > 0 {
+		statusLine += dim("  ·  ") + magenta(fmt.Sprintf("%d running", runningCount))
+	}
+	if pendingCount > 0 {
+		statusLine += dim("  ·  ") + dim(fmt.Sprintf("%d queued", pendingCount))
+	}
+	if failedCount > 0 {
+		statusLine += dim("  ·  ") + red(fmt.Sprintf("%d failed", failedCount))
+	}
+	statusPlain := stripANSI(statusLine)
+	pad = boxWidth - 2 - len(statusPlain)
+	if pad < 0 {
+		pad = 0
+	}
+	fmt.Fprintf(r.out, "%s%s%s%s\n", cyan("║"), statusLine, strings.Repeat(" ", pad), cyan("║"))
+	lines++
+
+	// Separator between header and per-collector rows.
+	fmt.Fprintf(r.out, "%s%s%s\n", cyan("╠"), strings.Repeat("═", boxWidth-2), cyan("╣"))
+	lines++
+
+	// Per-collector rows.
 	for _, name := range r.order {
 		st := r.states[name]
 		var icon, phaseText string
 		switch st.phase {
 		case "pending":
-			icon = dim("·")
+			icon = dim("◌")
 			phaseText = dim("queued")
 		case "running":
-			icon = yellow("↻")
-			phaseText = yellow(fmt.Sprintf("running %s", time.Since(st.started).Round(time.Second)))
+			frame := spinnerFrames[r.spinFrame%len(spinnerFrames)]
+			icon = magenta(frame)
+			phaseText = magenta(fmt.Sprintf("running %s", time.Since(st.started).Round(time.Second)))
 		case "done":
 			icon = green("✓")
-			phaseText = green(fmt.Sprintf("done    %s", st.finished.Sub(st.started).Round(time.Second)))
+			phaseText = green(fmt.Sprintf("%s", st.finished.Sub(st.started).Round(time.Second)))
 		case "failed":
 			icon = red("✗")
-			phaseText = red(fmt.Sprintf("failed  %s", st.finished.Sub(st.started).Round(time.Second)))
+			phaseText = red(fmt.Sprintf("failed %s", st.finished.Sub(st.started).Round(time.Second)))
 		}
-		detailCol := ""
-		if st.detail != "" {
-			detailCol = dim("— " + st.detail)
+
+		detail := st.detail
+		if len(detail) > boxWidth-30 {
+			detail = detail[:boxWidth-33] + "..."
 		}
-		// Fixed-width columns so in-place update doesn't shimmy.
-		fmt.Fprintf(r.out, " %s %-38s %-20s %s\n", icon, st.label, phaseText, detailCol)
+		rowContent := fmt.Sprintf(" %s  %-38s  %-14s %s", icon, truncateLabel(st.label, 38), phaseText, dim(detail))
+		rowPlain := stripANSI(rowContent)
+		pad := boxWidth - 2 - len(rowPlain)
+		if pad < 0 {
+			pad = 0
+		}
+		fmt.Fprintf(r.out, "%s%s%s%s\n", cyan("║"), rowContent, strings.Repeat(" ", pad), cyan("║"))
+		lines++
+	}
+
+	// Box-bottom.
+	fmt.Fprintln(r.out, cyan("╚"+strings.Repeat("═", boxWidth-2)+"╝"))
+	lines++
+
+	// Inline hint when things are running that the user knows what's
+	// expected. Only shown on the first few ticks to avoid clutter.
+	if runningCount > 0 && !r.done && totalElapsed < 10*time.Second {
+		hint := dim("  Typical scan: 30s–2min per subscription. Longer means a large tenant or slow API.")
+		fmt.Fprintln(r.out, hint)
 		lines++
 	}
 
 	r.linesDrawn = lines
+	_ = white // keep reference
+}
+
+// statusGlyph returns a coloured symbol for the overall scan state:
+// ✓ if all done cleanly, ✗ if anything failed, ⚙ while work is in
+// progress.
+func statusGlyph(doneCount, totalCount, failedCount int) string {
+	green := color.New(color.FgHiGreen, color.Bold).SprintFunc()
+	red := color.New(color.FgHiRed, color.Bold).SprintFunc()
+	magenta := color.New(color.FgHiMagenta, color.Bold).SprintFunc()
+	if failedCount > 0 {
+		return red("⚠")
+	}
+	if doneCount == totalCount {
+		return green("✓")
+	}
+	return magenta("⚙")
+}
+
+// truncateLabel keeps the label within maxWidth characters, adding an
+// ellipsis if it had to be cut.
+func truncateLabel(s string, maxWidth int) string {
+	if len(s) <= maxWidth {
+		return s
+	}
+	return s[:maxWidth-1] + "…"
+}
+
+// stripANSI removes ANSI escape sequences so we can measure the
+// display width of a coloured string. Handles CSI sequences (ESC[
+// ... letter) — good enough for fatih/color output, which is all we
+// use.
+func stripANSI(s string) string {
+	var b strings.Builder
+	i := 0
+	for i < len(s) {
+		if s[i] == 0x1b && i+1 < len(s) && s[i+1] == '[' {
+			// Skip until we find the final byte (a letter in 0x40..0x7E).
+			j := i + 2
+			for j < len(s) && !(s[j] >= 0x40 && s[j] <= 0x7E) {
+				j++
+			}
+			if j < len(s) {
+				i = j + 1
+			} else {
+				i = j
+			}
+			continue
+		}
+		b.WriteByte(s[i])
+		i++
+	}
+	return b.String()
 }
