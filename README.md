@@ -193,7 +193,7 @@ Docker users update by pulling the new tag:
 
 ```bash
 docker pull ghcr.io/vatsayanvivek/argus:latest     # always-latest
-docker pull ghcr.io/vatsayanvivek/argus:v1.1.1     # pin to a specific version
+docker pull ghcr.io/vatsayanvivek/argus:1.2.0      # pin to a specific version (no 'v' prefix)
 ```
 
 ### From a package manager
@@ -233,7 +233,7 @@ If you want to see what changed between your version and the latest before upgra
 
 ```bash
 # 1. Docker image signature (cosign, keyless)
-cosign verify ghcr.io/vatsayanvivek/argus:v1.0.0 \
+cosign verify ghcr.io/vatsayanvivek/argus:1.2.0 \
   --certificate-identity-regexp='^https://github\.com/vatsayanvivek/argus/\.github/workflows/release\.yml@refs/tags/' \
   --certificate-oidc-issuer=https://token.actions.githubusercontent.com
 

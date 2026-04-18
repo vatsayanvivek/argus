@@ -31,6 +31,13 @@ jobs:
         with:
           go-version: '1.25'
 
+      # gendocs imports internal/engine which has //go:embed all:policies
+      # — the embed target is mirrored into the package from the canonical
+      # tree at repo root. Run embed-prep first so the import resolves,
+      # then regenerate the catalog pages.
+      - name: Mirror embeds (make embed-prep)
+        run: make embed-prep
+
       - name: Regenerate rule + chain pages
         run: |
           go run ./cmd/gendocs
