@@ -5,7 +5,7 @@ import (
 )
 
 // Version is set at build time via -ldflags="-X main.Version=<version>".
-var Version = "1.2.0"
+var Version = "1.3.0"
 
 func main() {
 	cmd.SetVersion(Version)

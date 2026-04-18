@@ -28,7 +28,7 @@ func cleanupPostUpdate() {
 	_ = os.Remove(self + ".old")
 }
 
-var version = "1.2.0"
+var version = "1.3.0"
 
 // SetVersion is called from main to inject the build-time version.
 func SetVersion(v string) {
